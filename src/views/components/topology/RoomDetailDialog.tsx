@@ -100,20 +100,28 @@ export const RoomDetailDialog: React.FC<RoomDetailDialogProps> = ({
 
   return (
     <Dialog
-      fullScreen={isMobile}
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      scroll="paper"
+      sx={{
+        zIndex: 1300,
+        '& .MuiDialog-container': {
+          alignItems: isMobile ? 'flex-end' : 'center',
+          justifyContent: 'center'
+        }
+      }}
       PaperProps={{
         sx: {
-          borderRadius: isMobile ? '20px 20px 0 0' : 4,
-          maxHeight: isMobile ? '90vh' : '85vh',
-          position: isMobile ? 'fixed' : 'relative',
-          bottom: isMobile ? 0 : 'auto',
+          borderRadius: isMobile ? '24px 24px 0 0' : 4,
+          maxHeight: isMobile ? '82vh' : '85vh',
+          width: isMobile ? '100vw' : 'auto',
           m: isMobile ? 0 : 2,
-          p: isMobile ? 1 : 2,
-          bgcolor: 'background.paper'
+          bgcolor: 'background.paper',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
         }
       }}
     >
@@ -294,22 +302,33 @@ export const RoomDetailDialog: React.FC<RoomDetailDialogProps> = ({
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 2, py: 1.5, justifyContent: 'space-between' }}>
+      <DialogActions
+        sx={{
+          px: 2.5,
+          pt: 1.5,
+          pb: isMobile ? 'calc(env(safe-area-inset-bottom, 0px) + 24px)' : 2,
+          justifyContent: 'space-between',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          flexShrink: 0
+        }}
+      >
         <Button
-          size="small"
+          size="medium"
           color="error"
           startIcon={<DeleteIcon fontSize="small" />}
           onClick={handleDeleteRoom}
-          sx={{ fontWeight: 600 }}
+          sx={{ fontWeight: 600, borderRadius: 2 }}
         >
           Eliminar
         </Button>
 
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1.2}>
           {!isNonMetric && (
             <Button
               variant="outlined"
-              size="small"
+              size="medium"
               startIcon={<ParamIcon fontSize="small" />}
               onClick={handleGoToParametrization}
               sx={{ fontWeight: 600, borderRadius: 2 }}
@@ -319,11 +338,11 @@ export const RoomDetailDialog: React.FC<RoomDetailDialogProps> = ({
           )}
           <Button
             variant="contained"
-            size="small"
+            size="medium"
             onClick={onClose}
-            sx={{ fontWeight: 700, borderRadius: 2 }}
+            sx={{ fontWeight: 700, borderRadius: 2, px: 2.5 }}
           >
-            Cerrar
+            Listo
           </Button>
         </Stack>
       </DialogActions>

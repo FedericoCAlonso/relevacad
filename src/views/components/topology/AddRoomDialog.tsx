@@ -247,7 +247,15 @@ export const AddRoomDialog: React.FC<AddRoomDialogProps> = ({
         </Stack>
       </DialogContent>
 
-      <DialogActions sx={{ px: 2, py: 1.5 }}>
+      <DialogActions
+        sx={{
+          px: 2,
+          pt: 1.5,
+          pb: isMobile ? 'calc(env(safe-area-inset-bottom, 0px) + 24px)' : 1.5,
+          borderTop: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <Button onClick={onClose} color="inherit">
           Cancelar
         </Button>

@@ -16,7 +16,9 @@ import {
   Box,
   Typography,
   Stack,
-  Chip
+  Chip,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   ElectricBolt as BoltIcon,
@@ -39,6 +41,8 @@ export const AddElectricalNodeDialog: React.FC<AddElectricalNodeDialogProps> = (
   onClose,
   defaultRoomId
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { rooms, registerElectricalNode, selectElectricalNode } = useSurveyViewModel();
 
   const [roomId, setRoomId] = useState<string>(defaultRoomId || (rooms[0]?.id ?? ''));
@@ -66,11 +70,12 @@ export const AddElectricalNodeDialog: React.FC<AddElectricalNodeDialogProps> = (
 
   return (
     <Dialog
+      fullScreen={isMobile}
       open={open}
       onClose={onClose}
       maxWidth="xs"
       fullWidth
-      PaperProps={{ sx: { borderRadius: 4, p: 1 } }}
+      PaperProps={{ sx: { borderRadius: isMobile ? 0 : 4, p: isMobile ? 0.5 : 1 } }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <BoltIcon color="primary" />
@@ -143,7 +148,15 @@ export const AddElectricalNodeDialog: React.FC<AddElectricalNodeDialogProps> = (
         </Stack>
       </DialogContent>
 
-      <DialogActions sx={{ px: 2, py: 1.5 }}>
+      <DialogActions
+        sx={{
+          px: 2,
+          pt: 1.5,
+          pb: isMobile ? 'calc(env(safe-area-inset-bottom, 0px) + 24px)' : 1.5,
+          borderTop: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <Button onClick={onClose} color="inherit">
           Cancelar
         </Button>
