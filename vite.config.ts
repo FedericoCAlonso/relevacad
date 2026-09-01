@@ -12,11 +12,11 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'RelevaCAD - Relevamiento Arquitectónico y Eléctrico',
+        name: 'RelevaCAD — IEBA',
         short_name: 'RelevaCAD',
         description: 'PWA profesional para relevamiento topológico, parametrización métrica y ensamblaje 2D de instalaciones eléctricas según AEA 90364-771.',
-        theme_color: '#1976d2',
-        background_color: '#f8f9fa',
+        theme_color: '#755b00',
+        background_color: '#fff8f1',
         display: 'standalone',
         orientation: 'landscape',
         icons: [
