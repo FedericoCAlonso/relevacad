@@ -21,7 +21,9 @@ import {
   Switch,
   Chip,
   Divider,
-  IconButton
+  IconButton,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   MeetingRoom as DoorIcon,
@@ -51,6 +53,8 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
   onClose,
   connection
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { rooms, updateConnection, deleteConnection } = useSurveyViewModel();
 
   const [type, setType] = useState<LogicalConnectionType>('puerta_estandar');
@@ -160,11 +164,12 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
 
   return (
     <Dialog
+      fullScreen={isMobile}
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{ sx: { borderRadius: 4, p: 1 } }}
+      PaperProps={{ sx: { borderRadius: isMobile ? 0 : 4, p: isMobile ? 0.5 : 1 } }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Stack direction="row" alignItems="center" spacing={1}>

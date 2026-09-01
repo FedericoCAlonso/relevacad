@@ -21,7 +21,9 @@ import {
   Menu,
   MenuItem,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   ZoomIn as ZoomInIcon,
@@ -48,6 +50,8 @@ const CLOUD_PATH_DATA =
 
 export const AssemblyCanvasView: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [dimensions, setDimensions] = useState({ width: 1000, height: 700 });
   const [scale, setScale] = useState(1);
   const [stagePos, setStagePos] = useState({ x: 80, y: 60 });
@@ -267,14 +271,16 @@ export const AssemblyCanvasView: React.FC = () => {
         elevation={3}
         sx={{
           position: 'absolute',
-          top: 14,
+          top: isMobile ? 8 : 14,
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 20,
           borderRadius: 8,
-          py: 0.6,
-          px: 1.5,
-          bgcolor: 'rgba(255, 255, 255, 0.92)',
+          py: 0.5,
+          px: isMobile ? 1 : 1.5,
+          maxWidth: isMobile ? 'calc(100vw - 16px)' : undefined,
+          overflowX: isMobile ? 'auto' : 'visible',
+          bgcolor: 'rgba(255, 255, 255, 0.94)',
           backdropFilter: 'blur(16px)',
           border: '1px solid rgba(226, 232, 240, 0.9)',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)'

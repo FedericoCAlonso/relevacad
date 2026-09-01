@@ -94,11 +94,11 @@ export const RoomSchematicPreview: React.FC<RoomSchematicPreviewProps> = ({ room
             alignItems: 'center',
             bgcolor: '#f8fafc',
             borderRadius: 3,
-            p: 1,
+            p: { xs: 0.5, sm: 1 },
             border: '1px solid #edf2f7'
           }}
         >
-          <svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
+          <svg width="100%" height="auto" viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={{ maxWidth: '100%', maxHeight: 300, display: 'block' }}>
             {/* Cuadrícula suave de fondo */}
             <defs>
               <pattern id="room-grid" width="20" height="20" patternUnits="userSpaceOnUse">

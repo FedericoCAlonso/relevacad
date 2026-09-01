@@ -39,7 +39,9 @@ import {
   Divider,
   IconButton,
   TextField,
-  MenuItem
+  MenuItem,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   Tune as ParamIcon,
@@ -80,6 +82,9 @@ const WALL_LABEL_MAP: Record<string, string> = {
 };
 
 export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const {
     rooms,
     connections,
@@ -501,8 +506,8 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
   return (
     <Box sx={{ width: '100%', height: '100%', position: 'relative', bgcolor: '#f8fafc' }}>
       {/* 🧭 Barra Superior de Control de Capas y Acciones */}
-      <Panel position="top-left" style={{ margin: 16, zIndex: 10 }}>
-        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+      <Panel position="top-left" style={{ margin: isMobile ? 8 : 16, zIndex: 10, maxWidth: isMobile ? 'calc(100vw - 16px)' : undefined }}>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ gap: 0.8 }}>
           {/* Botón Único "+ Agregar" */}
           <AddMenuButton onAddRoom={onOpenAddRoom} />
 
@@ -521,19 +526,19 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
               bgcolor: 'background.paper',
               boxShadow: 1,
               borderRadius: 2,
-              '& .MuiToggleButton-root': { px: 1.5, py: 0.6, fontSize: '0.8rem', fontWeight: 600 }
+              '& .MuiToggleButton-root': { px: isMobile ? 1 : 1.5, py: 0.5, fontSize: isMobile ? '0.74rem' : '0.8rem', fontWeight: 600 }
             }}
           >
             <ToggleButton value="architectural">
-              <Stack direction="row" spacing={0.6} alignItems="center">
-                <ArchitectureIcon fontSize="small" />
-                <span>🏛️ Arquitectura</span>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <ArchitectureIcon sx={{ fontSize: 16 }} />
+                <span>{isMobile ? 'Arq' : '🏛️ Arquitectura'}</span>
               </Stack>
             </ToggleButton>
             <ToggleButton value="electrical">
-              <Stack direction="row" spacing={0.6} alignItems="center">
-                <BoltIcon fontSize="small" color="primary" />
-                <span>⚡ Cañerías y Bocas</span>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <BoltIcon sx={{ fontSize: 16 }} color="primary" />
+                <span>{isMobile ? 'Eléc' : '⚡ Cañerías'}</span>
               </Stack>
             </ToggleButton>
           </ToggleButtonGroup>
@@ -544,30 +549,32 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
               variant="contained"
               color="warning"
               size="small"
-              startIcon={<LinkIcon />}
+              startIcon={<LinkIcon sx={{ fontSize: 16 }} />}
               onClick={() => {
                 setIsChainMode(true);
                 setChainLastNodeId(null);
                 setChainCount(0);
               }}
-              sx={{ boxShadow: 2, fontWeight: 700, borderRadius: 2 }}
+              sx={{ boxShadow: 2, fontWeight: 700, borderRadius: 2, fontSize: isMobile ? '0.72rem' : '0.8rem', px: isMobile ? 1 : 1.5 }}
             >
-              Conectar en Cadena
+              {isMobile ? 'Cadena' : 'Conectar en Cadena'}
             </Button>
           )}
 
           {/* Botón de Auto-Organización */}
-          <Tooltip title="Auto-ordenar espacios en cuadrícula limpia">
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<AutoLayoutIcon />}
-              onClick={handleAutoLayout}
-              sx={{ bgcolor: 'background.paper', boxShadow: 1, fontWeight: 600 }}
-            >
-              Auto-Organizar
-            </Button>
-          </Tooltip>
+          {!isMobile && (
+            <Tooltip title="Auto-ordenar espacios en cuadrícula limpia">
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AutoLayoutIcon />}
+                onClick={handleAutoLayout}
+                sx={{ bgcolor: 'background.paper', boxShadow: 1, fontWeight: 600 }}
+              >
+                Auto-Organizar
+              </Button>
+            </Tooltip>
+          )}
         </Stack>
       </Panel>
 

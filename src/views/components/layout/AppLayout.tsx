@@ -16,7 +16,10 @@ import {
   Chip,
   Tooltip,
   useMediaQuery,
-  useTheme
+  useTheme,
+  BottomNavigation,
+  BottomNavigationAction,
+  Paper
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -58,100 +61,113 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       {/* Top App Bar - Material 3 */}
-      <AppBar position="static" elevation={0} sx={{ borderBottom: '1px solid #e2e8f0', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ minHeight: 64, px: { xs: 1.5, sm: 3 } }}>
+      <AppBar
+        position="static"
+        elevation={0}
+        sx={{
+          bgcolor: 'background.default',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          zIndex: (theme) => theme.zIndex.drawer + 1
+        }}
+      >
+        <Toolbar sx={{ minHeight: isMobile ? 54 : 64, px: { xs: 1, sm: 3 } }}>
           {/* Botón de Menú Drawer */}
           <IconButton
             edge="start"
             color="inherit"
             aria-label="menu"
             onClick={() => setDrawerOpen(true)}
-            sx={{ mr: 1.5 }}
+            sx={{ mr: { xs: 0.8, sm: 1.5 }, p: 1 }}
           >
             <MenuIcon />
           </IconButton>
 
           {/* Logotipo y Título de la PWA */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mr: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>
             <Box
               sx={{
                 width: 32,
                 height: 32,
                 borderRadius: 2,
-                bgcolor: 'primary.main',
+                background: 'linear-gradient(135deg, #755b00 0%, #ca8a04 100%)',
                 color: 'white',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontWeight: 'bold',
-                fontSize: 16
+                fontSize: 16,
+                boxShadow: '0 2px 6px rgba(117, 91, 0, 0.25)'
               }}
             >
               ⚡
             </Box>
             <Box>
-              <Typography variant="subtitle1" fontWeight={700} lineHeight={1.1} noWrap>
+              <Typography variant="subtitle1" fontWeight={700} lineHeight={1.1} noWrap sx={{ fontSize: { xs: '0.95rem', sm: '1rem' } }}>
                 RelevaCAD
               </Typography>
               {!isMobile && (
                 <Typography variant="caption" color="text.secondary">
-                  Relevamiento Topológico & Eléctrico
+                  Relevamiento Topológico & Eléctrico — IEBA
                 </Typography>
               )}
             </Box>
           </Box>
 
-          {/* Navegación por Fases (3 Fases Core) */}
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
-            <Tabs
-              value={activePhase}
-              onChange={handleTabChange}
-              textColor="primary"
-              indicatorColor="primary"
-              variant={isMobile ? 'scrollable' : 'standard'}
-              scrollButtons="auto"
-              sx={{
-                '& .MuiTabs-indicator': {
-                  height: 3,
-                  borderRadius: '3px 3px 0 0'
-                }
-              }}
-            >
-              <Tab
-                value="topology"
-                icon={<TopologyIcon fontSize="small" />}
-                iconPosition="start"
-                label="1. Topología"
-              />
-              <Tab
-                value="parametrization"
-                icon={<ParamIcon fontSize="small" />}
-                iconPosition="start"
-                label="2. Parametrización"
-              />
-              <Tab
-                value="assembly"
-                icon={<AssemblyIcon fontSize="small" />}
-                iconPosition="start"
-                label="3. Ensamblaje 2D"
-              />
-            </Tabs>
-          </Box>
+          {/* Navegación por Fases en Desktop (Tabs Centrados) */}
+          {!isMobile && (
+            <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
+              <Tabs
+                value={activePhase}
+                onChange={handleTabChange}
+                textColor="primary"
+                indicatorColor="primary"
+                sx={{
+                  '& .MuiTabs-indicator': {
+                    height: 3,
+                    borderRadius: '3px 3px 0 0'
+                  }
+                }}
+              >
+                <Tab
+                  value="topology"
+                  icon={<TopologyIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="1. Topología"
+                />
+                <Tab
+                  value="parametrization"
+                  icon={<ParamIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="2. Parametrización"
+                />
+                <Tab
+                  value="assembly"
+                  icon={<AssemblyIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="3. Ensamblaje 2D"
+                />
+              </Tabs>
+            </Box>
+          )}
+
+          {/* Spacer en Mobile */}
+          {isMobile && <Box sx={{ flexGrow: 1 }} />}
 
           {/* Acciones de Cabecera */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
             {/* Toggle de Snapping Magnético */}
             {activePhase === 'assembly' && (
               <Tooltip title={isSnapEnabled ? 'Atracción Magnética (~15px) Activa' : 'Atracción Magnética Desactivada'}>
                 <Chip
                   icon={<SnapIcon fontSize="small" />}
-                  label={isMobile ? 'Snap' : isSnapEnabled ? 'Snap: ON' : 'Snap: OFF'}
+                  label={isMobile ? (isSnapEnabled ? 'Snap' : 'Off') : isSnapEnabled ? 'Snap: ON' : 'Snap: OFF'}
                   color={isSnapEnabled ? 'primary' : 'default'}
                   onClick={() => toggleSnap()}
                   clickable
                   variant={isSnapEnabled ? 'filled' : 'outlined'}
                   size="small"
-                  sx={{ fontWeight: 600 }}
+                  sx={{ fontWeight: 600, height: 26, fontSize: '0.72rem' }}
                 />
               </Tooltip>
             )}
@@ -186,7 +202,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         component="main"
         sx={{
           flexGrow: 1,
-          height: 'calc(100vh - 64px)',
+          height: isMobile ? 'calc(100vh - 54px - 56px)' : 'calc(100vh - 64px)',
           overflow: 'hidden',
           position: 'relative',
           bgcolor: 'background.default'
@@ -194,6 +210,58 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       >
         {children}
       </Box>
+
+      {/* Barra de Navegación Inferior en Móvil (Thumb-friendly Bottom Bar) */}
+      {isMobile && (
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.paper'
+          }}
+        >
+          <BottomNavigation
+            value={activePhase}
+            onChange={(_, newValue) => setActivePhase(newValue)}
+            showLabels
+            sx={{
+              height: 56,
+              bgcolor: 'background.paper',
+              '& .Mui-selected': {
+                color: 'primary.main',
+                fontWeight: 700
+              },
+              '& .MuiBottomNavigationAction-label': {
+                fontSize: '0.75rem',
+                fontFamily: '"Outfit", sans-serif',
+                mt: 0.2
+              }
+            }}
+          >
+            <BottomNavigationAction
+              label="Topología"
+              value="topology"
+              icon={<TopologyIcon />}
+            />
+            <BottomNavigationAction
+              label="Parámetros"
+              value="parametrization"
+              icon={<ParamIcon />}
+            />
+            <BottomNavigationAction
+              label="Ensamblaje"
+              value="assembly"
+              icon={<AssemblyIcon />}
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
     </Box>
   );
 };

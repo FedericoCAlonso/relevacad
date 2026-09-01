@@ -17,7 +17,9 @@ import {
   Typography,
   Stack,
   Tabs,
-  Tab
+  Tab,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -39,6 +41,8 @@ export const AddRoomDialog: React.FC<AddRoomDialogProps> = ({
   onClose,
   defaultTab = 'interior'
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { createRoom, selectRoom } = useSurveyViewModel();
 
   const initialTabIndex = defaultTab === 'technical' ? 2 : defaultTab === 'access' ? 1 : 0;
@@ -107,11 +111,12 @@ export const AddRoomDialog: React.FC<AddRoomDialogProps> = ({
 
   return (
     <Dialog
+      fullScreen={isMobile}
       open={open}
       onClose={onClose}
       maxWidth="xs"
       fullWidth
-      PaperProps={{ sx: { borderRadius: 4, p: 1 } }}
+      PaperProps={{ sx: { borderRadius: isMobile ? 0 : 4, p: isMobile ? 0.5 : 1 } }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {isTechnicalMode ? (

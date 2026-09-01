@@ -24,7 +24,9 @@ import {
   ListItemText,
   ListItemIcon,
   LinearProgress,
-  Paper
+  Paper,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -88,6 +90,9 @@ export const ConduitInspectorDrawer: React.FC<ConduitInspectorDrawerProps> = ({
   const [newSeccion, setNewSeccion] = useState<number>(1.5);
   const [newEtiqueta, setNewEtiqueta] = useState('');
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const tramo = electricalTramos.find((t) => t.id === tramoId);
 
   if (!tramo) return null;
@@ -141,13 +146,16 @@ export const ConduitInspectorDrawer: React.FC<ConduitInspectorDrawerProps> = ({
 
   return (
     <Drawer
-      anchor="right"
+      anchor={isMobile ? 'bottom' : 'right'}
       open={open}
       onClose={onClose}
       PaperProps={{
         sx: {
-          width: { xs: '100%', sm: 420 },
-          p: 2.5,
+          width: isMobile ? '100vw' : 420,
+          maxHeight: isMobile ? '85vh' : '100vh',
+          borderTopLeftRadius: isMobile ? 24 : 0,
+          borderTopRightRadius: isMobile ? 24 : 0,
+          p: isMobile ? 2 : 2.5,
           bgcolor: '#ffffff',
           boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
         }
