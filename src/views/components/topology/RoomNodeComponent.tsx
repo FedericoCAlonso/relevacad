@@ -15,7 +15,9 @@ import {
   Chip,
   Stack,
   IconButton,
-  Tooltip
+  Tooltip,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   ElectricBolt as BoltIcon,
@@ -66,10 +68,14 @@ export interface RoomNodeData {
   onAddElectricalNode?: (roomId: string) => void;
   onSelectElectricalNode?: (nodeId: string | null) => void;
   onNodeClickInChain?: (nodeId: string) => void;
+  onOpenRoomDetail?: (roomId: string) => void;
 }
 
 export const RoomNodeComponent = memo(({ data }: NodeProps) => {
   const nodeData = data as unknown as RoomNodeData;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const roomTypeMeta =
     ROOM_TYPE_CATALOG[nodeData.roomType as keyof typeof ROOM_TYPE_CATALOG] ||
     ROOM_TYPE_CATALOG.other;
@@ -107,12 +113,17 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
     <Box
       sx={{
         position: 'relative',
-        minWidth: 250,
-        maxWidth: 310,
+        minWidth: isMobile ? 165 : 250,
+        maxWidth: isMobile ? 220 : 310,
         cursor: nodeData.isChainModeActive ? 'pointer' : 'grab',
         opacity: isRoomInActiveSubtree ? 1 : 0.22,
         filter: isRoomInActiveSubtree ? 'none' : 'grayscale(0.7)',
         transition: 'opacity 0.25s ease, filter 0.25s ease'
+      }}
+      onClick={() => {
+        if (isMobile && !nodeData.isChainModeActive && nodeData.onOpenRoomDetail) {
+          nodeData.onOpenRoomDetail(nodeData.roomId);
+        }
       }}
     >
       {/* 🧭 HANDLES DE ABERTURAS ORIENTADOS A LAS 4 PAREDES (N, S, E, O) */}
@@ -331,227 +342,313 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
           }
         }}
       >
-        <CardContent sx={{ p: 1.8, '&:last-child': { pb: 1.8 } }}>
-          {/* Header del Espacio */}
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.8}>
-            <Stack direction="row" spacing={0.8} alignItems="center">
+        {isMobile ? (
+          <CardContent sx={{ p: 1.2, '&:last-child': { pb: 1.2 } }}>
+            {/* Header del Espacio Móvil */}
+            <Stack direction="row" spacing={0.8} alignItems="center" mb={0.4}>
               {getHeaderIcon()}
-              <Chip
-                label={getBadgeLabel()}
-                size="small"
-                variant="filled"
-                sx={{
-                  height: 20,
-                  fontSize: '0.65rem',
-                  fontWeight: 700,
-                  bgcolor: isTechnical ? '#fef3c7' : isAccess ? '#d1fae5' : '#e0f2fe',
-                  color: isTechnical ? '#b45309' : isAccess ? '#065f46' : '#0369a1'
-                }}
-              />
+              <Typography
+                variant="subtitle2"
+                fontWeight={700}
+                color={isTechnical ? '#92400e' : isAccess ? '#065f46' : 'text.primary'}
+                noWrap
+                sx={{ fontSize: '0.82rem', flexGrow: 1 }}
+              >
+                {nodeData.name}
+              </Typography>
             </Stack>
 
-            {!isNonMetric ? (
-              <Chip
-                icon={<DimIcon sx={{ fontSize: '11px !important' }} />}
-                label={`${(nodeData.dimensions.width * nodeData.dimensions.length).toFixed(1)}m²`}
-                size="small"
-                variant="outlined"
-                sx={{ height: 18, fontSize: '0.62rem', fontWeight: 600 }}
-              />
-            ) : (
-              <Chip
-                label={isTechnical ? 'Subsuelo/PB' : 'Común'}
-                size="small"
-                variant="outlined"
-                sx={{
-                  height: 18,
-                  fontSize: '0.62rem',
-                  fontWeight: 600,
-                  borderColor: isTechnical ? '#f59e0b' : '#10b981',
-                  color: isTechnical ? '#b45309' : '#047857'
-                }}
-              />
-            )}
-          </Stack>
-
-          {/* Nombre del Espacio */}
-          <Typography
-            variant="subtitle2"
-            fontWeight={700}
-            color={isTechnical ? '#92400e' : isAccess ? '#065f46' : 'text.primary'}
-            noWrap
-            gutterBottom
-          >
-            {nodeData.name}
-          </Typography>
-
-          {/* Sub-Nodos Eléctricos Contenidos */}
-          {isElectricalMode && (
-            <Box sx={{ mt: 1.2 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                <Typography variant="caption" fontWeight={700} color="text.secondary" textTransform="uppercase" sx={{ fontSize: '0.65rem' }}>
-                  Componentes Eléctricos ({nodeData.electricalNodes.length})
-                </Typography>
-                {nodeData.onAddElectricalNode && !nodeData.isChainModeActive && (
-                  <Tooltip title="Agregar nodo eléctrico a este espacio">
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        nodeData.onAddElectricalNode?.(nodeData.roomId);
-                      }}
-                      sx={{ p: 0.2, bgcolor: '#e2e8f0', '&:hover': { bgcolor: '#cbd5e1' } }}
-                    >
-                      <AddIcon sx={{ fontSize: 13 }} />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Box>
-
-              {nodeData.electricalNodes.length === 0 ? (
-                <Typography variant="caption" color="text.disabled" fontStyle="italic" display="block">
-                  Sin nodos eléctricos asignados
-                </Typography>
+            {/* Badges Móviles */}
+            <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
+              {!isNonMetric ? (
+                <>
+                  <Chip
+                    icon={<DimIcon sx={{ fontSize: '11px !important' }} />}
+                    label={`${(nodeData.dimensions.width * nodeData.dimensions.length).toFixed(1)}m²`}
+                    size="small"
+                    variant="outlined"
+                    sx={{ height: 19, fontSize: '0.65rem', fontWeight: 600, px: 0.2 }}
+                  />
+                  <Chip
+                    icon={<BoltIcon sx={{ fontSize: '11px !important' }} />}
+                    label={`${nodeData.electricalNodes.length}`}
+                    size="small"
+                    color={nodeData.electricalNodes.length > 0 ? 'primary' : 'default'}
+                    variant={nodeData.electricalNodes.length > 0 ? 'filled' : 'outlined'}
+                    sx={{ height: 19, fontSize: '0.65rem', fontWeight: 700, px: 0.2 }}
+                  />
+                </>
               ) : (
-                <Stack spacing={0.8}>
-                  {nodeData.electricalNodes.map((elecNode) => {
-                    const meta =
-                      TIPO_NODO_ELECTRICO_CATALOG[elecNode.tipo] ||
-                      TIPO_NODO_ELECTRICO_CATALOG.boca_tomacorriente;
-                    const isSelected = nodeData.selectedElectricalNodeId === elecNode.id;
+                <Chip
+                  label={getBadgeLabel()}
+                  size="small"
+                  variant="filled"
+                  sx={{
+                    height: 19,
+                    fontSize: '0.62rem',
+                    fontWeight: 700,
+                    bgcolor: isTechnical ? '#fef3c7' : '#d1fae5',
+                    color: isTechnical ? '#b45309' : '#065f46'
+                  }}
+                />
+              )}
+            </Stack>
 
-                    // Estado dentro del modo Conexión en Cadena
-                    const isChainOrigin = nodeData.isChainModeActive && nodeData.chainLastNodeId === elecNode.id;
+            {/* En modo eléctrico móvil: handles de conexión rápida */}
+            {isElectricalMode && (
+              <>
+                <Handle
+                  type="source"
+                  position={Position.Right}
+                  id="source-elec-mobile"
+                  style={{
+                    background: '#d97706',
+                    width: 12,
+                    height: 12,
+                    border: '2px solid #ffffff',
+                    zIndex: 10,
+                    right: -6,
+                    top: '50%'
+                  }}
+                />
+                <Handle
+                  type="target"
+                  position={Position.Left}
+                  id="target-elec-mobile"
+                  style={{
+                    background: '#d97706',
+                    width: 12,
+                    height: 12,
+                    border: '2px solid #ffffff',
+                    zIndex: 10,
+                    left: -6,
+                    top: '50%'
+                  }}
+                />
+              </>
+            )}
+          </CardContent>
+        ) : (
+          <CardContent sx={{ p: 1.8, '&:last-child': { pb: 1.8 } }}>
+            {/* Header del Espacio */}
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.8}>
+              <Stack direction="row" spacing={0.8} alignItems="center">
+                {getHeaderIcon()}
+                <Chip
+                  label={getBadgeLabel()}
+                  size="small"
+                  variant="filled"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    bgcolor: isTechnical ? '#fef3c7' : isAccess ? '#d1fae5' : '#e0f2fe',
+                    color: isTechnical ? '#b45309' : isAccess ? '#065f46' : '#0369a1'
+                  }}
+                />
+              </Stack>
 
-                    const isNodeInSubtree =
-                      !nodeData.isAnySubTreeActive ||
-                      (nodeData.highlightedSubTreeNodeIds && nodeData.highlightedSubTreeNodeIds.includes(elecNode.id));
+              {!isNonMetric ? (
+                <Chip
+                  icon={<DimIcon sx={{ fontSize: '11px !important' }} />}
+                  label={`${(nodeData.dimensions.width * nodeData.dimensions.length).toFixed(1)}m²`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 18, fontSize: '0.62rem', fontWeight: 600 }}
+                />
+              ) : (
+                <Chip
+                  label={isTechnical ? 'Subsuelo/PB' : 'Común'}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    height: 18,
+                    fontSize: '0.62rem',
+                    fontWeight: 600,
+                    borderColor: isTechnical ? '#f59e0b' : '#10b981',
+                    color: isTechnical ? '#b45309' : '#047857'
+                  }}
+                />
+              )}
+            </Stack>
 
-                    return (
-                      <Box
-                        key={elecNode.id}
+            {/* Nombre del Espacio */}
+            <Typography
+              variant="subtitle2"
+              fontWeight={700}
+              color={isTechnical ? '#92400e' : isAccess ? '#065f46' : 'text.primary'}
+              noWrap
+              gutterBottom
+            >
+              {nodeData.name}
+            </Typography>
+
+            {/* Sub-Nodos Eléctricos Contenidos */}
+            {isElectricalMode && (
+              <Box sx={{ mt: 1.2 }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" textTransform="uppercase" sx={{ fontSize: '0.65rem' }}>
+                    Componentes Eléctricos ({nodeData.electricalNodes.length})
+                  </Typography>
+                  {nodeData.onAddElectricalNode && !nodeData.isChainModeActive && (
+                    <Tooltip title="Agregar nodo eléctrico a este espacio">
+                      <IconButton
+                        size="small"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (nodeData.isChainModeActive) {
-                            nodeData.onNodeClickInChain?.(elecNode.id);
-                          } else {
-                            if (isSelected) {
-                              nodeData.onSelectElectricalNode?.(null);
-                            } else {
-                              nodeData.onSelectElectricalNode?.(elecNode.id);
-                            }
-                          }
+                          nodeData.onAddElectricalNode?.(nodeData.roomId);
                         }}
-                        sx={{
-                          position: 'relative',
-                          p: 0.8,
-                          borderRadius: 2,
-                          bgcolor: isChainOrigin
-                            ? '#fff7ed'
-                            : isSelected
-                            ? '#eff6ff'
-                            : isNodeInSubtree && nodeData.isAnySubTreeActive
-                            ? '#f0fdf4'
-                            : '#f8fafc',
-                          border: isChainOrigin
-                            ? '2px solid #ea580c'
-                            : isSelected
-                            ? '2px solid #2563eb'
-                            : isNodeInSubtree && nodeData.isAnySubTreeActive
-                            ? '1.5px solid #16a34a'
-                            : '1px solid #e2e8f0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          boxShadow: isChainOrigin
-                            ? '0 0 12px rgba(234, 88, 12, 0.4)'
-                            : isSelected || (isNodeInSubtree && nodeData.isAnySubTreeActive)
-                            ? '0 0 8px rgba(37, 99, 235, 0.25)'
-                            : '0 1px 2px rgba(0,0,0,0.03)',
-                          opacity: isNodeInSubtree ? 1 : 0.25,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          '&:hover': {
-                            bgcolor: nodeData.isChainModeActive ? '#ffedd5' : '#eff6ff',
-                            borderColor: nodeData.isChainModeActive ? '#ea580c' : '#2563eb'
-                          }
-                        }}
+                        sx={{ p: 0.2, bgcolor: '#e2e8f0', '&:hover': { bgcolor: '#cbd5e1' } }}
                       >
-                        {/* Handles Eléctricos */}
-                        <Handle
-                          type="target"
-                          position={Position.Left}
-                          id={`elec-target-${elecNode.id}`}
-                          style={{
-                            background: meta.color,
-                            width: 9,
-                            height: 9,
-                            border: '1.5px solid #ffffff',
-                            left: -6
+                        <AddIcon sx={{ fontSize: 13 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+
+                {nodeData.electricalNodes.length === 0 ? (
+                  <Typography variant="caption" color="text.disabled" fontStyle="italic" display="block">
+                    Sin nodos eléctricos asignados
+                  </Typography>
+                ) : (
+                  <Stack spacing={0.8}>
+                    {nodeData.electricalNodes.map((elecNode) => {
+                      const meta =
+                        TIPO_NODO_ELECTRICO_CATALOG[elecNode.tipo] ||
+                        TIPO_NODO_ELECTRICO_CATALOG.boca_tomacorriente;
+                      const isSelected = nodeData.selectedElectricalNodeId === elecNode.id;
+
+                      // Estado dentro del modo Conexión en Cadena
+                      const isChainOrigin = nodeData.isChainModeActive && nodeData.chainLastNodeId === elecNode.id;
+
+                      const isNodeInSubtree =
+                        !nodeData.isAnySubTreeActive ||
+                        (nodeData.highlightedSubTreeNodeIds && nodeData.highlightedSubTreeNodeIds.includes(elecNode.id));
+
+                      return (
+                        <Box
+                          key={elecNode.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (nodeData.isChainModeActive) {
+                              nodeData.onNodeClickInChain?.(elecNode.id);
+                            } else {
+                              if (isSelected) {
+                                nodeData.onSelectElectricalNode?.(null);
+                              } else {
+                                nodeData.onSelectElectricalNode?.(elecNode.id);
+                              }
+                            }
                           }}
-                        />
-                        <Handle
-                          type="source"
-                          position={Position.Right}
-                          id={`elec-source-${elecNode.id}`}
-                          style={{
-                            background: meta.color,
-                            width: 9,
-                            height: 9,
-                            border: '1.5px solid #ffffff',
-                            right: -6
+                          sx={{
+                            position: 'relative',
+                            p: 0.8,
+                            borderRadius: 2,
+                            bgcolor: isChainOrigin
+                              ? '#fff7ed'
+                              : isSelected
+                              ? 'rgba(37, 99, 235, 0.12)'
+                              : '#f8fafc',
+                            border: isChainOrigin
+                              ? '2px solid #f97316'
+                              : isSelected
+                              ? '1.5px solid #2563eb'
+                              : '1px solid #e2e8f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer',
+                            opacity: isNodeInSubtree ? 1 : 0.25,
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              bgcolor: isChainOrigin ? '#ffedd5' : '#f1f5f9'
+                            }
                           }}
-                        />
-
-                        <Box display="flex" alignItems="center" gap={0.8} overflow="hidden">
-                          <Typography sx={{ fontSize: '0.85rem' }}>{meta.emoji}</Typography>
-                          <Box overflow="hidden">
-                            <Typography variant="caption" fontWeight={700} noWrap display="block" color="#1e293b">
-                              {elecNode.etiqueta}
-                            </Typography>
-                            {elecNode.circuitoCodigo && (
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.62rem' }}>
-                                {elecNode.circuitoCodigo}
-                              </Typography>
-                            )}
-                          </Box>
-                        </Box>
-
-                        <Stack direction="row" spacing={0.4} alignItems="center">
-                          {isChainOrigin ? (
-                            <Chip
-                              icon={<LinkIcon sx={{ fontSize: '11px !important' }} />}
-                              label="ORIGEN"
-                              size="small"
-                              color="warning"
-                              sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800 }}
-                            />
-                          ) : isSelected ? (
-                            <Tooltip title="Nodo Raíz del Subárbol Iluminado">
-                              <SparkleIcon sx={{ fontSize: 14, color: '#2563eb' }} />
-                            </Tooltip>
-                          ) : null}
-
-                          <Chip
-                            label={meta.shortCode}
-                            size="small"
-                            sx={{
-                              height: 16,
-                              fontSize: '0.6rem',
-                              fontWeight: 700,
-                              bgcolor: `${meta.color}22`,
-                              color: meta.color
+                        >
+                          <Handle
+                            type="source"
+                            position={Position.Right}
+                            id={`source-${elecNode.id}`}
+                            style={{
+                              background: isChainOrigin ? '#f97316' : meta.color,
+                              width: 10,
+                              height: 10,
+                              border: '2px solid #ffffff',
+                              zIndex: 10,
+                              right: -5
                             }}
                           />
-                        </Stack>
-                      </Box>
-                    );
-                  })}
-                </Stack>
-              )}
-            </Box>
-          )}
-        </CardContent>
+                          <Handle
+                            type="target"
+                            position={Position.Left}
+                            id={`target-${elecNode.id}`}
+                            style={{
+                              background: isChainOrigin ? '#f97316' : meta.color,
+                              width: 10,
+                              height: 10,
+                              border: '2px solid #ffffff',
+                              zIndex: 10,
+                              left: -5
+                            }}
+                          />
+
+                          <Box display="flex" alignItems="center" gap={0.8}>
+                            <Box
+                              sx={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                bgcolor: meta.color
+                              }}
+                            />
+                            <Box>
+                              <Typography variant="caption" fontWeight={700} noWrap display="block" color="#1e293b">
+                                {elecNode.etiqueta}
+                              </Typography>
+                              {elecNode.circuitoCodigo && (
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.62rem' }}>
+                                  {elecNode.circuitoCodigo}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+
+                          <Stack direction="row" spacing={0.4} alignItems="center">
+                            {isChainOrigin ? (
+                              <Chip
+                                icon={<LinkIcon sx={{ fontSize: '11px !important' }} />}
+                                label="ORIGEN"
+                                size="small"
+                                color="warning"
+                                sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800 }}
+                              />
+                            ) : isSelected ? (
+                              <Tooltip title="Nodo Raíz del Subárbol Iluminado">
+                                <SparkleIcon sx={{ fontSize: 14, color: '#2563eb' }} />
+                              </Tooltip>
+                            ) : null}
+
+                            <Chip
+                              label={meta.shortCode}
+                              size="small"
+                              sx={{
+                                height: 16,
+                                fontSize: '0.6rem',
+                                fontWeight: 700,
+                                bgcolor: `${meta.color}22`,
+                                color: meta.color
+                              }}
+                            />
+                          </Stack>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                )}
+              </Box>
+            )}
+          </CardContent>
+        )}
       </Card>
     </Box>
   );

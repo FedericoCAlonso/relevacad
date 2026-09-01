@@ -61,6 +61,7 @@ import { RoomNodeComponent } from './RoomNodeComponent';
 import { EditOpeningDialog } from './EditOpeningDialog';
 import { AddElectricalNodeDialog } from './AddElectricalNodeDialog';
 import { ConduitInspectorDrawer } from './ConduitInspectorDrawer';
+import { RoomDetailDialog } from './RoomDetailDialog';
 import { CONNECTION_TYPE_CATALOG } from '@/models/GraphModel';
 import { getConduitAeaNotation } from '@/models/ElectricalGraphModel';
 import { computeElectricalSubtree } from '@/viewmodels/utils/electricalSubtreeSolver';
@@ -110,6 +111,7 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
   const [editingConnectionId, setEditingConnectionId] = useState<string | null>(null);
   const [inspectorTramoId, setInspectorTramoId] = useState<string | null>(null);
   const [addElecNodeRoomId, setAddElecNodeRoomId] = useState<string | null>(null);
+  const [selectedDetailRoomId, setSelectedDetailRoomId] = useState<string | null>(null);
 
   // Filtro activo de circuitos para la vista eléctrica
   const [circuitFilter, setCircuitFilter] = useState<string | null>(null);
@@ -251,7 +253,8 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
 
             onAddElectricalNode: (rId: string) => setAddElecNodeRoomId(rId),
             onSelectElectricalNode: (nId: string | null) => selectElectricalNode(nId),
-            onNodeClickInChain: handleNodeClickInChain
+            onNodeClickInChain: handleNodeClickInChain,
+            onOpenRoomDetail: (rId: string) => setSelectedDetailRoomId(rId)
           }
         };
       });
@@ -297,25 +300,28 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
           }`;
         }
 
+        const mobileArchLabel = conn.opening?.hasAutomation ? `${typeMeta.emoji} ⚡` : typeMeta.emoji;
+        const finalArchLabel = isMobile ? mobileArchLabel : edgeLabel;
+
         formattedEdges.push({
           id: `arch-${conn.id}`,
           source: conn.sourceRoomId,
           target: conn.targetRoomId,
           sourceHandle: srcHandle,
           targetHandle: tgtHandle,
-          label: edgeLabel,
+          label: finalArchLabel,
           type: 'smoothstep',
           animated: conn.type === 'conduit_main' || !!conn.opening?.hasAutomation,
           style: {
             stroke: typeMeta.color,
-            strokeWidth: 2.5,
+            strokeWidth: isMobile ? 2 : 2.5,
             strokeDasharray: typeMeta.strokeDasharray,
             cursor: 'pointer',
             opacity: 1
           },
-          labelStyle: { fill: '#0f172a', fontWeight: 700, fontSize: 10.5 },
+          labelStyle: { fill: '#0f172a', fontWeight: 700, fontSize: isMobile ? 12 : 10.5 },
           labelBgStyle: { fill: '#ffffff', fillOpacity: 0.96, rx: 6, ry: 6, stroke: typeMeta.color, strokeWidth: 1 },
-          labelBgPadding: [6, 4],
+          labelBgPadding: isMobile ? [4, 2] : [6, 4],
           data: { edgeType: 'architectural', rawId: conn.id }
         });
       });
@@ -346,32 +352,34 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
 
         // Notación técnica AEA concisa: ej "C1-IUG [// o- T ''] • Ø19 (5m)"
         const aeaNotation = getConduitAeaNotation(tramo);
+        const mobileElecLabel = `⚡ ${tramoCircuits[0] || 'C1'} • Ø${tramo.diametroCañoMm}`;
+        const finalElecLabel = isMobile ? mobileElecLabel : aeaNotation;
 
         formattedEdges.push({
           id: `elec-${tramo.id}`,
           source: sourceNode.roomId,
           target: targetNode.roomId,
-          sourceHandle: `elec-source-${sourceNode.id}`,
-          targetHandle: `elec-target-${targetNode.id}`,
-          label: aeaNotation,
+          sourceHandle: isMobile ? 'source-elec-mobile' : `elec-source-${sourceNode.id}`,
+          targetHandle: isMobile ? 'target-elec-mobile' : `elec-target-${targetNode.id}`,
+          label: finalElecLabel,
           type: 'smoothstep',
           animated: isHighlighted,
           style: {
             stroke: tramoColor,
-            strokeWidth: isHighlighted ? (isMainFeeder ? 4.5 : 3.5) : 1.5,
+            strokeWidth: isHighlighted ? (isMainFeeder ? 4.5 : 3.5) : (isMobile ? 2 : 1.5),
             cursor: 'pointer',
-            opacity: isHighlighted ? 1 : 0.15
+            opacity: isHighlighted ? 1 : 0.2
           },
-          labelStyle: { fill: tramoColor, fontWeight: isHighlighted ? 800 : 500, fontSize: isHighlighted ? 10.5 : 9 },
+          labelStyle: { fill: tramoColor, fontWeight: isHighlighted ? 800 : 600, fontSize: isMobile ? 9.5 : isHighlighted ? 10.5 : 9 },
           labelBgStyle: {
             fill: '#ffffff',
-            fillOpacity: isHighlighted ? 0.98 : 0.3,
+            fillOpacity: isHighlighted ? 0.98 : 0.6,
             rx: 6,
             ry: 6,
             stroke: isHighlighted ? tramoColor : '#cbd5e1',
             strokeWidth: isHighlighted ? 1.5 : 1
           },
-          labelBgPadding: [6, 4],
+          labelBgPadding: isMobile ? [4, 2] : [6, 4],
           data: { edgeType: 'electrical', rawId: tramo.id }
         });
       });
@@ -439,9 +447,12 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
     (_: React.MouseEvent, node: Node) => {
       if (!isChainMode) {
         selectRoom(node.id);
+        if (isMobile) {
+          setSelectedDetailRoomId(node.id);
+        }
       }
     },
-    [isChainMode, selectRoom]
+    [isChainMode, selectRoom, isMobile]
   );
 
   const handleNodeDoubleClick = useCallback(
@@ -862,6 +873,14 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
         open={Boolean(addElecNodeRoomId)}
         onClose={() => setAddElecNodeRoomId(null)}
         defaultRoomId={addElecNodeRoomId || undefined}
+      />
+
+      {/* 📱 Diálogo de Detalle del Ambiente en Móvil (Micro-Card Click) */}
+      <RoomDetailDialog
+        open={Boolean(selectedDetailRoomId)}
+        onClose={() => setSelectedDetailRoomId(null)}
+        roomId={selectedDetailRoomId}
+        onOpenAddElectricalNode={(rId) => setAddElecNodeRoomId(rId)}
       />
     </Box>
   );
