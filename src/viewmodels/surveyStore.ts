@@ -23,6 +23,7 @@ import {
   TIPO_NODO_ELECTRICO_CATALOG
 } from '@/models/ElectricalGraphModel';
 import { SnapGuideLine } from './utils/snappingCalculator';
+import { solveAutoAssembly } from './utils/autoAssemblySolver';
 
 export type SurveyPhase = 'topology' | 'parametrization' | 'assembly';
 export type TopologyLayerMode = 'architectural' | 'electrical' | 'unified';
@@ -109,6 +110,7 @@ export interface SurveyState {
 
   // Operaciones sobre el Canvas 2D (Ensamblaje)
   updateRoomCanvasPosition: (roomId: string, position: { x: number; y: number }) => void;
+  autoAssembleRooms: () => void;
   setSnapGuides: (guides: SnapGuideLine[]) => void;
   toggleSnap: (enabled?: boolean) => void;
 
@@ -1711,6 +1713,12 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
     }));
   },
 
+  autoAssembleRooms: () => {
+    const { rooms, connections } = get();
+    const assembledRooms = solveAutoAssembly(rooms, connections);
+    set({ rooms: assembledRooms });
+  },
+
   setSnapGuides: (guides) => set({ activeSnapGuides: guides }),
 
   toggleSnap: (enabled) =>
@@ -1719,8 +1727,9 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
     })),
 
   loadSampleData: () => {
+    const assembledRooms = solveAutoAssembly(INITIAL_ROOMS, INITIAL_CONNECTIONS);
     set({
-      rooms: INITIAL_ROOMS,
+      rooms: assembledRooms,
       connections: INITIAL_CONNECTIONS,
       electricalNodes: INITIAL_ELECTRICAL_NODES,
       electricalTramos: INITIAL_ELECTRICAL_TRAMOS,

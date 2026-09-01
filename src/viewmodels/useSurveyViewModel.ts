@@ -82,6 +82,7 @@ export function useSurveyViewModel() {
   const inferDimensionAction = useSurveyStore((state) => state.inferDimension);
 
   const updateRoomCanvasPositionAction = useSurveyStore((state) => state.updateRoomCanvasPosition);
+  const autoAssembleRoomsAction = useSurveyStore((state) => state.autoAssembleRooms);
   const setSnapGuidesAction = useSurveyStore((state) => state.setSnapGuides);
   const toggleSnapAction = useSurveyStore((state) => state.toggleSnap);
   const loadSampleDataAction = useSurveyStore((state) => state.loadSampleData);
@@ -566,6 +567,7 @@ export function useSurveyViewModel() {
     deleteElectricalAsset: removeElectricalAssetAction,
 
     // Ensamblaje 2D
+    autoAssembleRooms: autoAssembleRoomsAction,
     handleRoomDrag,
     handleRoomDragEnd,
 

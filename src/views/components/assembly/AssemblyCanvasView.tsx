@@ -30,6 +30,7 @@ import {
   ZoomOut as ZoomOutIcon,
   RestartAlt as ResetViewIcon,
   AutoFixHigh as SnapIcon,
+  AutoAwesome as AutoLayoutIcon,
   ViewInAr as WallIcon,
   AccountTree as TopologyLinesIcon,
   Architecture as ArchPlanIcon
@@ -56,6 +57,7 @@ export const AssemblyCanvasView: React.FC = () => {
     connections,
     selectedRoomId,
     selectRoom,
+    autoAssembleRooms,
     isSnapEnabled,
     toggleSnap,
     activeSnapGuides,
@@ -205,6 +207,20 @@ export const AssemblyCanvasView: React.FC = () => {
               <ListItemText primary="7 cm (Durlock Liviano)" primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
             </MenuItem>
           </Menu>
+
+          {/* ⚡ Botón de Auto-Ensamble Inteligente */}
+          <Tooltip title="Auto-ensamblar y alinear planta arquitectónica según el grafo topológico">
+            <Chip
+              icon={<AutoLayoutIcon fontSize="small" />}
+              label="Auto-Ensamblar"
+              color="primary"
+              size="small"
+              onClick={() => autoAssembleRooms()}
+              clickable
+              variant="filled"
+              sx={{ fontWeight: 700, fontSize: '0.75rem', height: 28 }}
+            />
+          </Tooltip>
 
           <Box sx={{ height: 18, width: 1, bgcolor: '#cbd5e1' }} />
 
