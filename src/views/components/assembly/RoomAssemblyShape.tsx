@@ -1,11 +1,13 @@
 /**
  * View Component: RoomAssemblyShape (Konva 2D Architectural Room Node)
- * Componente altamente optimizado con React.memo para renderizar cada recinto arquitectónico
- * en la fase de ensamblaje sin provocar re-renders en cascada de otros ambientes.
+ * Implementa Bitmap Caching nativo (group.cache()) por ambiente.
+ * Cada recinto arquitectónico se congela en un buffer gráfico offscreen en memoria GPU/RAM
+ * y solo se recalcula/redibuja cuando sus cotas, aberturas o estado cambian.
  */
 
-import React, { memo } from 'react';
+import React, { memo, useRef, useEffect } from 'react';
 import { Group, Rect, Text, Line, Path } from 'react-konva';
+import Konva from 'konva';
 import { Room, TIPO_CUBIERTA_CATALOG } from '@/models/RoomModel';
 import { LogicalConnection } from '@/models/GraphModel';
 import { ELECTRICAL_ASSET_CATALOG } from '@/models/ElectricalTypes';
@@ -38,7 +40,34 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
   onDragMove,
   onDragEnd
 }) => {
+  const innerRef = useRef<Konva.Group>(null);
   const isNonMetric = room.isAccessPoint || room.isTechnicalIsland;
+
+  // 🚀 BITMAP CACHING: Congela la geometría vectorial del bloque en memoria GPU
+  // Solo se regenera el snapshot cuando hay cambios estructurales en el ambiente
+  useEffect(() => {
+    if (innerRef.current) {
+      innerRef.current.clearCache();
+      try {
+        innerRef.current.cache({
+          pixelRatio: Math.min(window.devicePixelRatio || 1, 2)
+        });
+      } catch (err) {
+        // En caso de que dimensiones sean 0 o inválidas durante inicialización
+      }
+    }
+  }, [
+    room.dimensions,
+    room.geometry,
+    room.color,
+    room.name,
+    room.tipoCubierta,
+    room.electricalAssets,
+    isSelected,
+    openings,
+    wallThicknessPx,
+    isNonMetric
+  ]);
 
   // ☁️ 1. RENDERIZADO COMO NUBE PARA ACCESOS E ISLAS TÉCNICAS (Sin muros rígidos)
   if (isNonMetric) {
@@ -72,44 +101,46 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
           onDragEnd(room.id, e.target);
         }}
       >
-        <Path
-          data={CLOUD_PATH_DATA}
-          scaleX={1.15}
-          scaleY={1.1}
-          fill={cloudFill}
-          opacity={0.88}
-          stroke={cloudStroke}
-          strokeWidth={isSelected ? 3 : 2}
-          dash={[6, 4]}
-          shadowColor={isSelected ? '#00629e' : '#000000'}
-          shadowBlur={isSelected ? 14 : 4}
-          shadowOpacity={0.2}
-          perfectDrawEnabled={false}
-        />
+        <Group ref={innerRef}>
+          <Path
+            data={CLOUD_PATH_DATA}
+            scaleX={1.15}
+            scaleY={1.1}
+            fill={cloudFill}
+            opacity={0.88}
+            stroke={cloudStroke}
+            strokeWidth={isSelected ? 3 : 2}
+            dash={[6, 4]}
+            shadowColor={isSelected ? '#00629e' : '#000000'}
+            shadowBlur={isSelected ? 14 : 4}
+            shadowOpacity={0.2}
+            perfectDrawEnabled={false}
+          />
 
-        <Text
-          text={`☁️ ${room.name}`}
-          x={15}
-          y={42}
-          fontSize={11}
-          fontStyle="bold"
-          fontFamily="Outfit, Roboto, sans-serif"
-          fill={room.isTechnicalIsland ? '#92400e' : '#065f46'}
-          width={150}
-          align="center"
-          listening={false}
-        />
-        <Text
-          text={room.isTechnicalIsland ? 'Isla de Suministro' : 'Límite Exterior / Palier'}
-          x={15}
-          y={58}
-          fontSize={8.5}
-          fontFamily="Outfit, Roboto, sans-serif"
-          fill="#64748b"
-          width={150}
-          align="center"
-          listening={false}
-        />
+          <Text
+            text={`☁️ ${room.name}`}
+            x={15}
+            y={42}
+            fontSize={11}
+            fontStyle="bold"
+            fontFamily="Outfit, Roboto, sans-serif"
+            fill={room.isTechnicalIsland ? '#92400e' : '#065f46'}
+            width={150}
+            align="center"
+            listening={false}
+          />
+          <Text
+            text={room.isTechnicalIsland ? 'Isla de Suministro' : 'Límite Exterior / Palier'}
+            x={15}
+            y={58}
+            fontSize={8.5}
+            fontFamily="Outfit, Roboto, sans-serif"
+            fill="#64748b"
+            width={150}
+            align="center"
+            listening={false}
+          />
+        </Group>
       </Group>
     );
   }
@@ -321,127 +352,129 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
         onDragEnd(room.id, e.target);
       }}
     >
-      {/* Superficie / Suelo Interior */}
-      {hasBreaks ? (
-        <Line
-          points={polyPointsPx}
-          closed
-          fill={isDescubierto ? '#f0fdf4' : isSemicubierto ? '#fffdfa' : (room.color || '#f8fafc')}
-          opacity={isSelected ? 0.95 : 0.85}
-          shadowColor={isSelected ? '#00629e' : '#000000'}
-          shadowBlur={isSelected ? 16 : 4}
-          shadowOpacity={isSelected ? 0.35 : 0.08}
-          perfectDrawEnabled={false}
-        />
-      ) : (
-        <Rect
-          x={0}
-          y={0}
-          width={widthPx}
-          height={lengthPx}
-          fill={isDescubierto ? '#f0fdf4' : isSemicubierto ? '#fffdfa' : (room.color || '#f8fafc')}
-          opacity={isSelected ? 0.95 : 0.85}
-          shadowColor={isSelected ? '#00629e' : '#000000'}
-          shadowBlur={isSelected ? 16 : 4}
-          shadowOpacity={isSelected ? 0.35 : 0.08}
-          perfectDrawEnabled={false}
-        />
-      )}
+      <Group ref={innerRef}>
+        {/* Superficie / Suelo Interior */}
+        {hasBreaks ? (
+          <Line
+            points={polyPointsPx}
+            closed
+            fill={isDescubierto ? '#f0fdf4' : isSemicubierto ? '#fffdfa' : (room.color || '#f8fafc')}
+            opacity={isSelected ? 0.95 : 0.85}
+            shadowColor={isSelected ? '#00629e' : '#000000'}
+            shadowBlur={isSelected ? 16 : 4}
+            shadowOpacity={isSelected ? 0.35 : 0.08}
+            perfectDrawEnabled={false}
+          />
+        ) : (
+          <Rect
+            x={0}
+            y={0}
+            width={widthPx}
+            height={lengthPx}
+            fill={isDescubierto ? '#f0fdf4' : isSemicubierto ? '#fffdfa' : (room.color || '#f8fafc')}
+            opacity={isSelected ? 0.95 : 0.85}
+            shadowColor={isSelected ? '#00629e' : '#000000'}
+            shadowBlur={isSelected ? 16 : 4}
+            shadowOpacity={isSelected ? 0.35 : 0.08}
+            perfectDrawEnabled={false}
+          />
+        )}
 
-      {/* 🧱 Muros Perimetrales */}
-      {renderWallWithOpenings('north', widthPx, lengthPx, northOpenings)}
-      {renderWallWithOpenings('south', widthPx, lengthPx, southOpenings)}
-      {renderWallWithOpenings('west', widthPx, lengthPx, westOpenings)}
-      {renderWallWithOpenings('east', widthPx, lengthPx, eastOpenings)}
+        {/* 🧱 Muros Perimetrales */}
+        {renderWallWithOpenings('north', widthPx, lengthPx, northOpenings)}
+        {renderWallWithOpenings('south', widthPx, lengthPx, southOpenings)}
+        {renderWallWithOpenings('west', widthPx, lengthPx, westOpenings)}
+        {renderWallWithOpenings('east', widthPx, lengthPx, eastOpenings)}
 
-      {/* Indicador de Selección Activa */}
-      {isSelected && (
-        <Rect
-          x={-wallThicknessPx - 1}
-          y={-wallThicknessPx - 1}
-          width={widthPx + 2 * wallThicknessPx + 2}
-          height={lengthPx + 2 * wallThicknessPx + 2}
-          stroke="#0284c7"
-          strokeWidth={2}
-          dash={[6, 4]}
+        {/* Indicador de Selección Activa */}
+        {isSelected && (
+          <Rect
+            x={-wallThicknessPx - 1}
+            y={-wallThicknessPx - 1}
+            width={widthPx + 2 * wallThicknessPx + 2}
+            height={lengthPx + 2 * wallThicknessPx + 2}
+            stroke="#0284c7"
+            strokeWidth={2}
+            dash={[6, 4]}
+            listening={false}
+            perfectDrawEnabled={false}
+          />
+        )}
+
+        {/* Nombre y Dimensiones Interiores */}
+        <Text
+          text={`${cubiertaMeta?.emoji || '🏠'} ${room.name}`}
+          x={10}
+          y={12}
+          fontSize={11.5}
+          fontStyle="bold"
+          fontFamily="Outfit, Roboto, sans-serif"
+          fill="#0f172a"
+          width={Math.max(10, widthPx - 20)}
+          align="center"
           listening={false}
-          perfectDrawEnabled={false}
         />
-      )}
+        <Text
+          text={`${widthText} × ${lengthText}m • ${realArea}m² • ${cubiertaMeta?.shortLabel || 'Cubierto'}`}
+          x={10}
+          y={27}
+          fontSize={8.5}
+          fontFamily="Outfit, Roboto, sans-serif"
+          fill={isDescubierto ? '#16a34a' : isSemicubierto ? '#d97706' : !isWLocked || !isLLocked ? '#0284c7' : '#64748b'}
+          width={Math.max(10, widthPx - 20)}
+          align="center"
+          listening={false}
+        />
 
-      {/* Nombre y Dimensiones Interiores */}
-      <Text
-        text={`${cubiertaMeta?.emoji || '🏠'} ${room.name}`}
-        x={10}
-        y={12}
-        fontSize={11.5}
-        fontStyle="bold"
-        fontFamily="Outfit, Roboto, sans-serif"
-        fill="#0f172a"
-        width={Math.max(10, widthPx - 20)}
-        align="center"
-        listening={false}
-      />
-      <Text
-        text={`${widthText} × ${lengthText}m • ${realArea}m² • ${cubiertaMeta?.shortLabel || 'Cubierto'}`}
-        x={10}
-        y={27}
-        fontSize={8.5}
-        fontFamily="Outfit, Roboto, sans-serif"
-        fill={isDescubierto ? '#16a34a' : isSemicubierto ? '#d97706' : !isWLocked || !isLLocked ? '#0284c7' : '#64748b'}
-        width={Math.max(10, widthPx - 20)}
-        align="center"
-        listening={false}
-      />
+        {/* Renderizado de Bocas Eléctricas */}
+        {room.electricalAssets.map((asset) => {
+          const meta = ELECTRICAL_ASSET_CATALOG[asset.type] || { code: 'E' };
+          let posX = widthPx / 2;
+          let posY = lengthPx / 2;
 
-      {/* Renderizado de Bocas Eléctricas */}
-      {room.electricalAssets.map((asset) => {
-        const meta = ELECTRICAL_ASSET_CATALOG[asset.type] || { code: 'E' };
-        let posX = widthPx / 2;
-        let posY = lengthPx / 2;
+          if (asset.wall === 'north') {
+            posX = asset.offsetRatio * widthPx;
+            posY = 0;
+          } else if (asset.wall === 'south') {
+            posX = asset.offsetRatio * widthPx;
+            posY = lengthPx;
+          } else if (asset.wall === 'west') {
+            posX = 0;
+            posY = asset.offsetRatio * lengthPx;
+          } else if (asset.wall === 'east') {
+            posX = widthPx;
+            posY = asset.offsetRatio * lengthPx;
+          }
 
-        if (asset.wall === 'north') {
-          posX = asset.offsetRatio * widthPx;
-          posY = 0;
-        } else if (asset.wall === 'south') {
-          posX = asset.offsetRatio * widthPx;
-          posY = lengthPx;
-        } else if (asset.wall === 'west') {
-          posX = 0;
-          posY = asset.offsetRatio * lengthPx;
-        } else if (asset.wall === 'east') {
-          posX = widthPx;
-          posY = asset.offsetRatio * lengthPx;
-        }
-
-        return (
-          <Group key={asset.id} x={posX} y={posY} listening={false}>
-            <Rect
-              x={-7}
-              y={-7}
-              width={14}
-              height={14}
-              fill="#ffffff"
-              stroke="#d97706"
-              strokeWidth={1.5}
-              cornerRadius={3}
-              perfectDrawEnabled={false}
-            />
-            <Text
-              text={meta.code}
-              x={-6}
-              y={-5}
-              fontSize={8}
-              fontStyle="bold"
-              fontFamily="Outfit, Roboto, sans-serif"
-              fill="#b45309"
-              width={12}
-              align="center"
-              perfectDrawEnabled={false}
-            />
-          </Group>
-        );
-      })}
+          return (
+            <Group key={asset.id} x={posX} y={posY} listening={false}>
+              <Rect
+                x={-7}
+                y={-7}
+                width={14}
+                height={14}
+                fill="#ffffff"
+                stroke="#d97706"
+                strokeWidth={1.5}
+                cornerRadius={3}
+                perfectDrawEnabled={false}
+              />
+              <Text
+                text={meta.code}
+                x={-6}
+                y={-5}
+                fontSize={8}
+                fontStyle="bold"
+                fontFamily="Outfit, Roboto, sans-serif"
+                fill="#b45309"
+                width={12}
+                align="center"
+                perfectDrawEnabled={false}
+              />
+            </Group>
+          );
+        })}
+      </Group>
     </Group>
   );
 });
