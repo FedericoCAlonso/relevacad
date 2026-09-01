@@ -335,15 +335,17 @@ export const AssemblyCanvasView: React.FC = () => {
                   ? [guide.position, guide.start, guide.position, guide.end]
                   : [guide.start, guide.position, guide.end, guide.position];
 
+              const isTopo = guide.isTopologicalAdjacency;
+
               return (
                 <Line
                   key={guide.id}
                   points={points}
-                  stroke="#00e5ff"
-                  strokeWidth={2}
-                  dash={[6, 4]}
-                  shadowColor="#00e5ff"
-                  shadowBlur={4}
+                  stroke={isTopo ? '#10b981' : '#00e5ff'}
+                  strokeWidth={isTopo ? 3 : 2}
+                  dash={isTopo ? [8, 3] : [6, 4]}
+                  shadowColor={isTopo ? '#10b981' : '#00e5ff'}
+                  shadowBlur={6}
                   perfectDrawEnabled={false}
                 />
               );

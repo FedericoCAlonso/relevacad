@@ -1,9 +1,5 @@
-/**
- * ViewModel Utility: Magnetic Snapping Calculator (~15px threshold)
- * Calcula atracción magnética entre aristas y vértices de ambientes durante el ensamblaje 2D.
- */
-
 import { Room } from '@/models/RoomModel';
+import { LogicalConnection } from '@/models/GraphModel';
 import { metersToPixels } from './geometryUtils';
 
 export interface SnapGuideLine {
@@ -13,6 +9,7 @@ export interface SnapGuideLine {
   start: number;    // Inicio del segmento de guía
   end: number;      // Fin del segmento de guía
   targetRoomId: string;
+  isTopologicalAdjacency?: boolean; // Indica si la atracción responde a una arista arquitectónica
 }
 
 export interface SnapResult {
@@ -27,7 +24,8 @@ export function calculateMagneticSnapping(
   draggedRoomId: string,
   proposedPos: { x: number; y: number },
   allRooms: Room[],
-  threshold: number = 15 // Umbral de tolerancia de atracción en píxeles (~15px)
+  connections: LogicalConnection[] = [],
+  threshold: number = 18 // Umbral de atracción magnética en píxeles
 ): SnapResult {
   const draggedRoom = allRooms.find((r) => r.id === draggedRoomId);
   if (!draggedRoom) {
@@ -57,7 +55,103 @@ export function calculateMagneticSnapping(
 
   const otherRooms = allRooms.filter((r) => r.id !== draggedRoomId);
 
-  // Evaluar atracción magnética en eje X
+  // 1. PRIORIDAD MÁXIMA: Aristas Topológicas (Adyacencia Física Explícita en el Grafo)
+  for (const conn of connections) {
+    const isSource = conn.sourceRoomId === draggedRoomId;
+    const isTarget = conn.targetRoomId === draggedRoomId;
+    if (!isSource && !isTarget) continue;
+
+    const targetId = isSource ? conn.targetRoomId : conn.sourceRoomId;
+    const target = allRooms.find((r) => r.id === targetId);
+    if (!target) continue;
+
+    const myWall = isSource ? conn.sourceWall : conn.targetWall;
+    const targetWall = isSource ? conn.targetWall : conn.sourceWall;
+    if (!myWall || !targetWall) continue;
+
+    const targetIsNonMetric = target.isAccessPoint || target.isTechnicalIsland;
+    const targetW = targetIsNonMetric ? 180 : metersToPixels(target.dimensions?.width || 3.0);
+    const targetH = targetIsNonMetric ? 100 : metersToPixels(target.dimensions?.length || 2.0);
+
+    const targetLeft = target.canvasPosition.x;
+    const targetRight = target.canvasPosition.x + targetW;
+    const targetTop = target.canvasPosition.y;
+    const targetBottom = target.canvasPosition.y + targetH;
+
+    const topoThreshold = threshold * 1.8; // Atracción magnética reforzada para ambientes unidos
+
+    // Encastre Horizontal (Este-Oeste)
+    if (myWall === 'west' && targetWall === 'east') {
+      const d = Math.abs(proposedPos.x - targetRight);
+      if (d <= topoThreshold && d < minDeltaX) {
+        minDeltaX = d;
+        finalX = targetRight;
+        snappedX = true;
+        guidelines.push({
+          id: `snap-topo-west-east-${target.id}`,
+          orientation: 'vertical',
+          position: targetRight,
+          start: Math.min(proposedPos.y, targetTop) - 20,
+          end: Math.max(proposedPos.y + draggedH, targetBottom) + 20,
+          targetRoomId: target.id,
+          isTopologicalAdjacency: true
+        });
+      }
+    } else if (myWall === 'east' && targetWall === 'west') {
+      const d = Math.abs(proposedPos.x + draggedW - targetLeft);
+      if (d <= topoThreshold && d < minDeltaX) {
+        minDeltaX = d;
+        finalX = targetLeft - draggedW;
+        snappedX = true;
+        guidelines.push({
+          id: `snap-topo-east-west-${target.id}`,
+          orientation: 'vertical',
+          position: targetLeft,
+          start: Math.min(proposedPos.y, targetTop) - 20,
+          end: Math.max(proposedPos.y + draggedH, targetBottom) + 20,
+          targetRoomId: target.id,
+          isTopologicalAdjacency: true
+        });
+      }
+    }
+
+    // Encastre Vertical (Norte-Sur)
+    if (myWall === 'north' && targetWall === 'south') {
+      const d = Math.abs(proposedPos.y - targetBottom);
+      if (d <= topoThreshold && d < minDeltaY) {
+        minDeltaY = d;
+        finalY = targetBottom;
+        snappedY = true;
+        guidelines.push({
+          id: `snap-topo-north-south-${target.id}`,
+          orientation: 'horizontal',
+          position: targetBottom,
+          start: Math.min(proposedPos.x, targetLeft) - 20,
+          end: Math.max(proposedPos.x + draggedW, targetRight) + 20,
+          targetRoomId: target.id,
+          isTopologicalAdjacency: true
+        });
+      }
+    } else if (myWall === 'south' && targetWall === 'north') {
+      const d = Math.abs(proposedPos.y + draggedH - targetTop);
+      if (d <= topoThreshold && d < minDeltaY) {
+        minDeltaY = d;
+        finalY = targetTop - draggedH;
+        snappedY = true;
+        guidelines.push({
+          id: `snap-topo-south-north-${target.id}`,
+          orientation: 'horizontal',
+          position: targetTop,
+          start: Math.min(proposedPos.x, targetLeft) - 20,
+          end: Math.max(proposedPos.x + draggedW, targetRight) + 20,
+          targetRoomId: target.id,
+          isTopologicalAdjacency: true
+        });
+      }
+    }
+  }
+
+  // 2. Atracción Geométrica General en eje X
   for (const target of otherRooms) {
     const targetIsNonMetric = target.isAccessPoint || target.isTechnicalIsland;
     const targetW = targetIsNonMetric ? 180 : metersToPixels(target.dimensions?.width || 3.0);
@@ -115,7 +209,7 @@ export function calculateMagneticSnapping(
     }
   }
 
-  // Evaluar atracción magnética en eje Y
+  // 3. Atracción Geométrica General en eje Y
   for (const target of otherRooms) {
     const targetIsNonMetric = target.isAccessPoint || target.isTechnicalIsland;
     const targetW = targetIsNonMetric ? 180 : metersToPixels(target.dimensions?.width || 3.0);

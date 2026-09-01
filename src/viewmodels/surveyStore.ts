@@ -128,10 +128,11 @@ const INITIAL_ROOMS: Room[] = [
     id: 'room-island-meters',
     name: 'Sala de Medidores (Subsuelo)',
     type: 'technical_island_meters',
+    tipoCubierta: 'cubierto',
     isTechnicalIsland: true,
     isCommonArea: true,
     dimensions: { width: 0, length: 0, height: 0 },
-    canvasPosition: { x: 20, y: 30 },
+    canvasPosition: { x: 40, y: 40 },
     topologyPosition: { x: 40, y: 40 },
     color: '#fef3c7',
     createdAt: new Date().toISOString(),
@@ -144,11 +145,12 @@ const INITIAL_ROOMS: Room[] = [
     id: 'room-palier',
     name: 'Palier 3º Piso',
     type: 'access_palier',
+    tipoCubierta: 'cubierto',
     isAccessPoint: true,
     isCommonArea: true,
     dimensions: { width: 0, length: 0, height: 0 },
-    canvasPosition: { x: 10, y: 360 },
-    topologyPosition: { x: 40, y: 260 },
+    canvasPosition: { x: 40, y: 280 },
+    topologyPosition: { x: 40, y: 240 },
     color: '#f0fdf4',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -160,9 +162,10 @@ const INITIAL_ROOMS: Room[] = [
     id: 'room-living',
     name: 'Estar / Comedor',
     type: 'living',
+    tipoCubierta: 'cubierto',
     isAccessPoint: false,
     dimensions: { width: 4.2, length: 4.8, height: 2.6 },
-    canvasPosition: { x: 180, y: 315 },
+    canvasPosition: { x: 200, y: 240 },
     topologyPosition: { x: 380, y: 240 },
     color: '#f8fafc',
     createdAt: new Date().toISOString(),
@@ -226,10 +229,11 @@ const INITIAL_ROOMS: Room[] = [
     id: 'room-balcony',
     name: 'Balcón Terraza',
     type: 'balcony',
+    tipoCubierta: 'semicubierto',
     isAccessPoint: false,
     dimensions: { width: 1.2, length: 4.8, height: 2.6 },
-    canvasPosition: { x: 390, y: 315 },
-    topologyPosition: { x: 740, y: 240 },
+    canvasPosition: { x: 410, y: 240 },
+    topologyPosition: { x: 740, y: 360 },
     color: '#f7fee7',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -262,11 +266,12 @@ const INITIAL_ROOMS: Room[] = [
     id: 'room-street',
     name: 'Calle / Línea Municipal',
     type: 'access_street',
+    tipoCubierta: 'descubierto',
     isAccessPoint: true,
     isCommonArea: true,
     dimensions: { width: 0, length: 0, height: 0 },
-    canvasPosition: { x: 480, y: 315 },
-    topologyPosition: { x: 1080, y: 240 },
+    canvasPosition: { x: 500, y: 320 },
+    topologyPosition: { x: 1080, y: 360 },
     color: '#ecfdf5',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -278,9 +283,10 @@ const INITIAL_ROOMS: Room[] = [
     id: 'room-kitchen',
     name: 'Cocina (Ubicación TSG)',
     type: 'kitchen',
+    tipoCubierta: 'cubierto',
     isAccessPoint: false,
     dimensions: { width: 2.0, length: 3.2, height: 2.6 },
-    canvasPosition: { x: 180, y: 155 },
+    canvasPosition: { x: 200, y: 80 },
     topologyPosition: { x: 380, y: -40 },
     color: '#fffbeb',
     createdAt: new Date().toISOString(),
@@ -345,9 +351,10 @@ const INITIAL_ROOMS: Room[] = [
     id: 'room-laundry',
     name: 'Lavadero',
     type: 'laundry',
+    tipoCubierta: 'cubierto',
     isAccessPoint: false,
     dimensions: { width: 2.0, length: 1.5, height: 2.6 },
-    canvasPosition: { x: 180, y: 80 },
+    canvasPosition: { x: 200, y: 5 },
     topologyPosition: { x: 380, y: -240 },
     color: '#f1f5f9',
     createdAt: new Date().toISOString(),
@@ -391,10 +398,11 @@ const INITIAL_ROOMS: Room[] = [
     id: 'room-hallway',
     name: 'Circulación Interna',
     type: 'hall',
+    tipoCubierta: 'cubierto',
     isAccessPoint: false,
     dimensions: { width: 1.2, length: 2.8, height: 2.6 },
-    canvasPosition: { x: 280, y: 175 },
-    topologyPosition: { x: 380, y: 520 },
+    canvasPosition: { x: 300, y: 100 },
+    topologyPosition: { x: 740, y: 60 },
     color: '#f8fafc',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -437,10 +445,11 @@ const INITIAL_ROOMS: Room[] = [
     id: 'room-bedroom-main',
     name: 'Habitación Principal',
     type: 'bedroom',
+    tipoCubierta: 'cubierto',
     isAccessPoint: false,
     dimensions: { width: 3.2, length: 3.6, height: 2.6 },
-    canvasPosition: { x: 340, y: 135 },
-    topologyPosition: { x: 740, y: 520 },
+    canvasPosition: { x: 360, y: 60 },
+    topologyPosition: { x: 1080, y: 60 },
     color: '#fdf4ff',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -498,71 +507,16 @@ const INITIAL_ROOMS: Room[] = [
     ]
   },
 
-  // 10. HABITACIÓN PEQUEÑA: Al Oeste (2.60m x 3.00m = 7.80 m²)
-  {
-    id: 'room-bedroom-small',
-    name: 'Habitación Pequeña',
-    type: 'bedroom',
-    isAccessPoint: false,
-    dimensions: { width: 2.6, length: 3.0, height: 2.6 },
-    canvasPosition: { x: 50, y: 80 },
-    topologyPosition: { x: 40, y: 520 },
-    color: '#fdf4ff',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    electricalAssets: [
-      {
-        id: 'asset-beds-sw',
-        type: 'switch_1_module',
-        label: 'Llave de Luz Entrada',
-        wall: 'east',
-        offsetRatio: 0.2,
-        offsetMeters: 0.6,
-        heightFromFloor: 1.2,
-        circuitCode: 'C1-IUG'
-      },
-      {
-        id: 'asset-beds-luz',
-        type: 'ceiling_light',
-        label: 'Boca Techo Centro',
-        wall: 'ceiling',
-        offsetRatio: 0.5,
-        offsetMeters: 1.3,
-        heightFromFloor: 2.6,
-        circuitCode: 'C1-IUG'
-      },
-      {
-        id: 'asset-beds-tug1',
-        type: 'double_outlet_10a',
-        label: 'Tomas Escritorio / PC',
-        wall: 'south',
-        offsetRatio: 0.5,
-        offsetMeters: 1.3,
-        heightFromFloor: 0.75,
-        circuitCode: 'C2-TUG'
-      },
-      {
-        id: 'asset-beds-tug2',
-        type: 'single_outlet_10a',
-        label: 'Toma Cama',
-        wall: 'north',
-        offsetRatio: 0.4,
-        offsetMeters: 1.04,
-        heightFromFloor: 0.35,
-        circuitCode: 'C2-TUG'
-      }
-    ]
-  },
-
-  // 11. BAÑO COMPLETO: Al Oeste (1.80m x 2.00m = 3.60 m²)
+  // 10. BAÑO COMPLETO: Al Norte de la Circulación (1.80m x 2.00m = 3.60 m²)
   {
     id: 'room-bathroom',
     name: 'Baño Completo',
     type: 'bathroom',
+    tipoCubierta: 'cubierto',
     isAccessPoint: false,
     dimensions: { width: 1.8, length: 2.0, height: 2.4 },
-    canvasPosition: { x: 90, y: 230 },
-    topologyPosition: { x: 40, y: 760 },
+    canvasPosition: { x: 300, y: 0 },
+    topologyPosition: { x: 740, y: -160 },
     color: '#f0fdfa',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -571,7 +525,7 @@ const INITIAL_ROOMS: Room[] = [
         id: 'asset-bath-sw',
         type: 'switch_1_module',
         label: 'Llave de Luz Exterior Baño',
-        wall: 'east',
+        wall: 'south',
         offsetRatio: 0.2,
         offsetMeters: 0.4,
         heightFromFloor: 1.2,
@@ -611,16 +565,74 @@ const INITIAL_ROOMS: Room[] = [
     ]
   },
 
+  // 11. HABITACIÓN PEQUEÑA / ESTUDIO: Al Sur del Estar (2.60m x 3.00m = 7.80 m²)
+  {
+    id: 'room-bedroom-small',
+    name: 'Habitación Pequeña',
+    type: 'bedroom',
+    tipoCubierta: 'cubierto',
+    isAccessPoint: false,
+    dimensions: { width: 2.6, length: 3.0, height: 2.6 },
+    canvasPosition: { x: 200, y: 480 },
+    topologyPosition: { x: 380, y: 580 },
+    color: '#fdf4ff',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    electricalAssets: [
+      {
+        id: 'asset-beds-sw',
+        type: 'switch_1_module',
+        label: 'Llave de Luz Entrada',
+        wall: 'north',
+        offsetRatio: 0.2,
+        offsetMeters: 0.6,
+        heightFromFloor: 1.2,
+        circuitCode: 'C1-IUG'
+      },
+      {
+        id: 'asset-beds-luz',
+        type: 'ceiling_light',
+        label: 'Boca Techo Centro',
+        wall: 'ceiling',
+        offsetRatio: 0.5,
+        offsetMeters: 1.3,
+        heightFromFloor: 2.6,
+        circuitCode: 'C1-IUG'
+      },
+      {
+        id: 'asset-beds-tug1',
+        type: 'double_outlet_10a',
+        label: 'Tomas Escritorio / PC',
+        wall: 'south',
+        offsetRatio: 0.5,
+        offsetMeters: 1.3,
+        heightFromFloor: 0.75,
+        circuitCode: 'C2-TUG'
+      },
+      {
+        id: 'asset-beds-tug2',
+        type: 'single_outlet_10a',
+        label: 'Toma Cama',
+        wall: 'north',
+        offsetRatio: 0.4,
+        offsetMeters: 1.04,
+        heightFromFloor: 0.35,
+        circuitCode: 'C2-TUG'
+      }
+    ]
+  },
+
   // 12. ÁREA COMÚN: Patio de Aire y Luz del Edificio
   {
     id: 'room-shaft-air',
     name: 'Aire y Luz (Patio Interno)',
     type: 'access_patio',
+    tipoCubierta: 'descubierto',
     isAccessPoint: true,
     isCommonArea: true,
     dimensions: { width: 0, length: 0, height: 0 },
-    canvasPosition: { x: -80, y: 90 },
-    topologyPosition: { x: -280, y: 520 },
+    canvasPosition: { x: 40, y: 500 },
+    topologyPosition: { x: 40, y: 580 },
     color: '#f0fdf4',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -655,7 +667,7 @@ const INITIAL_CONNECTIONS: LogicalConnection[] = [
     }
   },
 
-  // 2. Estar (Pared Norte) -> Cocina (Pared Sur) [Vano Libre]
+  // 2. Estar (Pared Norte) -> Cocina (Pared Sur) [Vano Cocina Integrada]
   {
     id: 'conn-living-kitchen',
     sourceRoomId: 'room-living',
@@ -674,7 +686,7 @@ const INITIAL_CONNECTIONS: LogicalConnection[] = [
     }
   },
 
-  // 3. Cocina (Pared Norte) -> Lavadero (Pared Sur) [Paso Libre]
+  // 3. Cocina (Pared Norte) -> Lavadero (Pared Sur) [Paso Lavadero]
   {
     id: 'conn-kitchen-laundry',
     sourceRoomId: 'room-kitchen',
@@ -693,47 +705,20 @@ const INITIAL_CONNECTIONS: LogicalConnection[] = [
     }
   },
 
-  // 4. Estar (Pared Este) -> Balcón (Pared Oeste) [Puerta-Ventana Balcón]
+  // 4. Cocina (Pared Este) -> Circulación (Pared Oeste) [Tabique Ciego Compartido]
   {
-    id: 'conn-living-balcony',
-    sourceRoomId: 'room-living',
-    targetRoomId: 'room-balcony',
-    type: 'puerta_ventana',
-    label: 'Puerta-Ventana Balcón (2.00m)',
+    id: 'conn-kitchen-hallway',
+    sourceRoomId: 'room-kitchen',
+    targetRoomId: 'room-hallway',
+    type: 'pared_comun',
+    label: 'Tabique Divisorio Cocina-Pasillo',
     sourceWall: 'east',
     targetWall: 'west',
     sourceHandle: 'source-east',
-    targetHandle: 'target-west',
-    opening: {
-      openingType: 'puerta_ventana',
-      widthMeters: 2.00,
-      heightMeters: 2.05,
-      sillHeightMeters: 0.0,
-      swingDirection: 'sliding',
-      material: 'aluminum'
-    }
+    targetHandle: 'target-west'
   },
 
-  // 5. Balcón (Pared Este) -> Calle [Límite Exterior / Frente]
-  {
-    id: 'conn-balcony-street',
-    sourceRoomId: 'room-balcony',
-    targetRoomId: 'room-street',
-    type: 'vano_libre',
-    label: 'Baranda al Frente L.M.',
-    sourceWall: 'east',
-    targetWall: 'west',
-    sourceHandle: 'source-east',
-    targetHandle: 'target-west',
-    opening: {
-      openingType: 'vano_libre',
-      widthMeters: 3.80,
-      heightMeters: 1.10,
-      swingDirection: 'fixed'
-    }
-  },
-
-  // 6. Estar (Pared Norte) -> Circulación Interna (Pared Sur) [Paso Distribuidor]
+  // 5. Estar (Pared Norte) -> Circulación Interna (Pared Sur) [Paso Distribuidor]
   {
     id: 'conn-living-hallway',
     sourceRoomId: 'room-living',
@@ -749,6 +734,26 @@ const INITIAL_CONNECTIONS: LogicalConnection[] = [
       widthMeters: 1.00,
       heightMeters: 2.10,
       swingDirection: 'fixed'
+    }
+  },
+
+  // 6. Circulación (Pared Norte) -> Baño Completo (Pared Sur) [Puerta Baño]
+  {
+    id: 'conn-hallway-bath',
+    sourceRoomId: 'room-hallway',
+    targetRoomId: 'room-bathroom',
+    type: 'puerta_estandar',
+    label: 'Puerta Baño (0.75m)',
+    sourceWall: 'north',
+    targetWall: 'south',
+    sourceHandle: 'source-north',
+    targetHandle: 'target-south',
+    opening: {
+      openingType: 'puerta_estandar',
+      widthMeters: 0.75,
+      heightMeters: 2.05,
+      swingDirection: 'left',
+      material: 'wood'
     }
   },
 
@@ -772,57 +777,51 @@ const INITIAL_CONNECTIONS: LogicalConnection[] = [
     }
   },
 
-  // 8. Circulación (Pared Oeste) -> Habitación Pequeña (Pared Este) [Puerta Placa]
+  // 8. Baño (Pared Este) -> Habitación Principal (Pared Oeste) [Pared Común]
   {
-    id: 'conn-hallway-bedsmall',
-    sourceRoomId: 'room-hallway',
-    targetRoomId: 'room-bedroom-small',
-    type: 'puerta_estandar',
-    label: 'Puerta Dorm. Pequeño (0.80m)',
-    sourceWall: 'west',
-    targetWall: 'east',
-    sourceHandle: 'source-west',
-    targetHandle: 'target-east',
+    id: 'conn-bedmain-bath',
+    sourceRoomId: 'room-bathroom',
+    targetRoomId: 'room-bedroom-main',
+    type: 'pared_comun',
+    label: 'Pared Divisoria Baño-Dormitorio',
+    sourceWall: 'east',
+    targetWall: 'west',
+    sourceHandle: 'source-east',
+    targetHandle: 'target-west'
+  },
+
+  // 9. Estar (Pared Este) -> Balcón (Pared Oeste) [Puerta-Ventana Balcón]
+  {
+    id: 'conn-living-balcony',
+    sourceRoomId: 'room-living',
+    targetRoomId: 'room-balcony',
+    type: 'puerta_ventana',
+    label: 'Puerta-Ventana Balcón (2.00m)',
+    sourceWall: 'east',
+    targetWall: 'west',
+    sourceHandle: 'source-east',
+    targetHandle: 'target-west',
     opening: {
-      openingType: 'puerta_estandar',
-      widthMeters: 0.80,
+      openingType: 'puerta_ventana',
+      widthMeters: 2.00,
       heightMeters: 2.05,
-      swingDirection: 'left',
-      material: 'wood'
+      sillHeightMeters: 0.0,
+      swingDirection: 'sliding',
+      material: 'aluminum'
     }
   },
 
-  // 9. Circulación (Pared Oeste) -> Baño (Pared Este) [Puerta Baño]
-  {
-    id: 'conn-hallway-bath',
-    sourceRoomId: 'room-hallway',
-    targetRoomId: 'room-bathroom',
-    type: 'puerta_estandar',
-    label: 'Puerta Baño (0.75m)',
-    sourceWall: 'west',
-    targetWall: 'east',
-    sourceHandle: 'source-west',
-    targetHandle: 'target-east',
-    opening: {
-      openingType: 'puerta_estandar',
-      widthMeters: 0.75,
-      heightMeters: 2.05,
-      swingDirection: 'left',
-      material: 'wood'
-    }
-  },
-
-  // 10. Habitación Principal (Pared Este) -> Balcón (Pared Oeste) [Ventana al Balcón]
+  // 10. Habitación Principal (Pared Sur) -> Balcón (Pared Norte) [Ventana al Balcón]
   {
     id: 'conn-bedmain-balcony',
     sourceRoomId: 'room-bedroom-main',
     targetRoomId: 'room-balcony',
     type: 'ventana_estandar',
     label: 'Ventana al Balcón (1.50m)',
-    sourceWall: 'east',
-    targetWall: 'west',
-    sourceHandle: 'source-east',
-    targetHandle: 'target-west',
+    sourceWall: 'south',
+    targetWall: 'north',
+    sourceHandle: 'source-south',
+    targetHandle: 'target-north',
     opening: {
       openingType: 'ventana_estandar',
       widthMeters: 1.50,
@@ -833,7 +832,46 @@ const INITIAL_CONNECTIONS: LogicalConnection[] = [
     }
   },
 
-  // 11. Habitación Pequeña (Pared Oeste) -> Aire y Luz [Ventana a Patio Interno]
+  // 11. Balcón (Pared Este) -> Calle [Límite Exterior / Frente]
+  {
+    id: 'conn-balcony-street',
+    sourceRoomId: 'room-balcony',
+    targetRoomId: 'room-street',
+    type: 'vano_libre',
+    label: 'Baranda al Frente L.M.',
+    sourceWall: 'east',
+    targetWall: 'west',
+    sourceHandle: 'source-east',
+    targetHandle: 'target-west',
+    opening: {
+      openingType: 'vano_libre',
+      widthMeters: 3.80,
+      heightMeters: 1.10,
+      swingDirection: 'fixed'
+    }
+  },
+
+  // 12. Estar (Pared Sur) -> Habitación Pequeña (Pared Norte) [Puerta Dormitorio Pequeño]
+  {
+    id: 'conn-living-bedsmall',
+    sourceRoomId: 'room-living',
+    targetRoomId: 'room-bedroom-small',
+    type: 'puerta_estandar',
+    label: 'Puerta Dorm. Pequeño (0.80m)',
+    sourceWall: 'south',
+    targetWall: 'north',
+    sourceHandle: 'source-south',
+    targetHandle: 'target-north',
+    opening: {
+      openingType: 'puerta_estandar',
+      widthMeters: 0.80,
+      heightMeters: 2.05,
+      swingDirection: 'left',
+      material: 'wood'
+    }
+  },
+
+  // 13. Habitación Pequeña (Pared Oeste) -> Aire y Luz [Ventana a Patio Interno]
   {
     id: 'conn-bedsmall-airshaft',
     sourceRoomId: 'room-bedroom-small',

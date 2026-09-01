@@ -469,13 +469,14 @@ export function useSurveyViewModel() {
         draggedRoomId,
         rawPosition,
         rooms,
+        connections,
         snapThreshold
       );
 
       setSnapGuidesAction(snapResult.guidelines);
       return { x: snapResult.x, y: snapResult.y };
     },
-    [isSnapEnabled, rooms, snapThreshold, setSnapGuidesAction]
+    [isSnapEnabled, rooms, connections, snapThreshold, setSnapGuidesAction]
   );
 
   const handleRoomDragEnd = useCallback(
