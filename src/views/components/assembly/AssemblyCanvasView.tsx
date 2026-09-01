@@ -375,6 +375,7 @@ export const AssemblyCanvasView: React.FC = () => {
             <RoomAssemblyShape
               key={room.id}
               room={room}
+              allRooms={rooms}
               isSelected={room.id === selectedRoomId}
               wallThicknessPx={wallThicknessPx}
               openings={connections}

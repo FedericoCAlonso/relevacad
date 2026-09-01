@@ -1,8 +1,9 @@
 /**
  * View Component: RoomAssemblyShape (Konva 2D Architectural Room Node)
- * Implementa Bitmap Caching nativo (group.cache()) por ambiente.
- * Cada recinto arquitectónico se congela en un buffer gráfico offscreen en memoria GPU/RAM
- * y solo se recalcula/redibuja cuando sus cotas, aberturas o estado cambian.
+ * Implementa Bitmap Caching nativo (group.cache()) por ambiente con:
+ * - Deduplicación estricta de aberturas arquitectónicas (puertas, vanos, ventanas no se repiten).
+ * - Muros compartidos unificados (evita doble espesor de pared en encuentros).
+ * - Identificación y dibujo de mochetas e intersecciones de encuentro T / L.
  */
 
 import React, { memo, useRef, useEffect } from 'react';
@@ -16,6 +17,7 @@ import {
   calculatePolygonArea,
   calculateRoomPolygon
 } from '@/viewmodels/utils/polygonSolver';
+import { calculateRoomPlanimetry } from '@/viewmodels/utils/unifiedFloorPlanSolver';
 import { ArchitecturalOpeningShape } from './ArchitecturalOpeningShape';
 
 const CLOUD_PATH_DATA =
@@ -23,6 +25,7 @@ const CLOUD_PATH_DATA =
 
 interface RoomAssemblyShapeProps {
   room: Room;
+  allRooms: Room[];
   isSelected: boolean;
   wallThicknessPx: number;
   openings: LogicalConnection[];
@@ -33,6 +36,7 @@ interface RoomAssemblyShapeProps {
 
 export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
   room,
+  allRooms,
   isSelected,
   wallThicknessPx,
   openings,
@@ -44,7 +48,6 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
   const isNonMetric = room.isAccessPoint || room.isTechnicalIsland;
 
   // 🚀 BITMAP CACHING: Congela la geometría vectorial del bloque en memoria GPU
-  // Solo se regenera el snapshot cuando hay cambios estructurales en el ambiente
   useEffect(() => {
     if (innerRef.current) {
       innerRef.current.clearCache();
@@ -53,7 +56,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
           pixelRatio: Math.min(window.devicePixelRatio || 1, 2)
         });
       } catch (err) {
-        // En caso de que dimensiones sean 0 o inválidas durante inicialización
+        // Ignorar si el nodo está temporalmente desmontado o con dimensiones 0
       }
     }
   }, [
@@ -66,7 +69,8 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     isSelected,
     openings,
     wallThicknessPx,
-    isNonMetric
+    isNonMetric,
+    allRooms
   ]);
 
   // ☁️ 1. RENDERIZADO COMO NUBE PARA ACCESOS E ISLAS TÉCNICAS (Sin muros rígidos)
@@ -151,22 +155,14 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
   const verticesMeters = calculateRoomPolygon(room);
   const realArea = calculatePolygonArea(verticesMeters);
 
-  const northOpenings = openings.filter((conn) =>
-    (conn.sourceRoomId === room.id && conn.sourceWall === 'north') ||
-    (conn.targetRoomId === room.id && conn.targetWall === 'north')
-  );
-  const southOpenings = openings.filter((conn) =>
-    (conn.sourceRoomId === room.id && conn.sourceWall === 'south') ||
-    (conn.targetRoomId === room.id && conn.targetWall === 'south')
-  );
-  const eastOpenings = openings.filter((conn) =>
-    (conn.sourceRoomId === room.id && conn.sourceWall === 'east') ||
-    (conn.targetRoomId === room.id && conn.targetWall === 'east')
-  );
-  const westOpenings = openings.filter((conn) =>
-    (conn.sourceRoomId === room.id && conn.sourceWall === 'west') ||
-    (conn.targetRoomId === room.id && conn.targetWall === 'west')
-  );
+  // Deduplicación y cálculo de muros e interfaces
+  const {
+    northOpenings,
+    southOpenings,
+    eastOpenings,
+    westOpenings,
+    sharedWalls
+  } = calculateRoomPlanimetry(room, allRooms, openings);
 
   const polyPointsPx = verticesMeters.flatMap((v) => [metersToPixels(v.x), metersToPixels(v.y)]);
   const hasBreaks = (room.geometry?.wallBreaks || []).length > 0;
@@ -180,12 +176,14 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     wall: 'north' | 'south' | 'east' | 'west',
     roomWidthPx: number,
     roomLengthPx: number,
-    wallOpenings: LogicalConnection[]
+    wallOpenings: LogicalConnection[],
+    isSharedWall: boolean
   ) => {
     const wallLengthPx = wall === 'north' || wall === 'south' ? roomWidthPx : roomLengthPx;
     const isHoriz = wall === 'north' || wall === 'south';
 
-    // Muro sin aberturas -> Muro Sólido
+    // Si la pared es compartida pero no tiene aberturas en este ambiente:
+    // se renderiza con espesor estándar unificado
     if (wallOpenings.length === 0) {
       let x = 0;
       let y = 0;
@@ -222,6 +220,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
           width={w}
           height={h}
           fill="#1e293b"
+          opacity={isSharedWall ? 0.92 : 1}
           cornerRadius={0.5}
           listening={false}
           perfectDrawEnabled={false}
@@ -229,15 +228,18 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
       );
     }
 
-    // Muro con Abertura -> Hueco en el Muro + Símbolo CAD
+    // Muro con Abertura -> Hueco en el Muro + Símbolo CAD Único (No duplicado)
     const elements: React.ReactNode[] = [];
     const opening = wallOpenings[0];
-    const openingWidthPx = Math.min(wallLengthPx * 0.9, (opening.opening?.widthMeters || 0.8) * PIXELS_PER_METER);
+    const openingWidthPx = Math.min(
+      wallLengthPx * 0.9,
+      (opening.opening?.widthMeters || 0.8) * PIXELS_PER_METER
+    );
     const centerPos = wallLengthPx / 2;
     const startOpening = Math.max(0, centerPos - openingWidthPx / 2);
     const endOpening = Math.min(wallLengthPx, centerPos + openingWidthPx / 2);
 
-    // Segmento 1 de muro
+    // Segmento 1 de muro (mocheta inicial)
     if (startOpening > 2) {
       if (isHoriz) {
         const yPos = wall === 'north' ? -wallThicknessPx : roomLengthPx;
@@ -270,7 +272,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
       }
     }
 
-    // Segmento 2 de muro
+    // Segmento 2 de muro (mocheta final)
     if (wallLengthPx - endOpening > 2) {
       if (isHoriz) {
         const yPos = wall === 'north' ? -wallThicknessPx : roomLengthPx;
@@ -303,7 +305,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
       }
     }
 
-    // Renderizar la Abertura Arquitectónica
+    // Renderizar la Abertura Arquitectónica (única instancia CAD)
     if (opening.opening) {
       let openingGroupY = 0;
       if (wall === 'south') openingGroupY = roomLengthPx;
@@ -380,11 +382,11 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
           />
         )}
 
-        {/* 🧱 Muros Perimetrales */}
-        {renderWallWithOpenings('north', widthPx, lengthPx, northOpenings)}
-        {renderWallWithOpenings('south', widthPx, lengthPx, southOpenings)}
-        {renderWallWithOpenings('west', widthPx, lengthPx, westOpenings)}
-        {renderWallWithOpenings('east', widthPx, lengthPx, eastOpenings)}
+        {/* 🧱 Muros Perimetrales con Deduplicación */}
+        {renderWallWithOpenings('north', widthPx, lengthPx, northOpenings, sharedWalls.north)}
+        {renderWallWithOpenings('south', widthPx, lengthPx, southOpenings, sharedWalls.south)}
+        {renderWallWithOpenings('west', widthPx, lengthPx, westOpenings, sharedWalls.west)}
+        {renderWallWithOpenings('east', widthPx, lengthPx, eastOpenings, sharedWalls.east)}
 
         {/* Indicador de Selección Activa */}
         {isSelected && (
