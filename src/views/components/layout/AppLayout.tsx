@@ -202,7 +202,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         component="main"
         sx={{
           flexGrow: 1,
-          height: isMobile ? 'calc(100vh - 54px - 56px)' : 'calc(100vh - 64px)',
+          height: isMobile ? 'calc(100dvh - 54px - 56px)' : 'calc(100dvh - 64px)',
+          minHeight: isMobile ? 'calc(100dvh - 54px - 56px)' : 'calc(100dvh - 64px)',
           overflow: 'hidden',
           position: 'relative',
           bgcolor: 'background.default'
@@ -223,7 +224,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             zIndex: 1000,
             borderTop: '1px solid',
             borderColor: 'divider',
-            bgcolor: 'background.paper'
+            bgcolor: 'background.paper',
+            pb: 'env(safe-area-inset-bottom, 0px)'
           }}
         >
           <BottomNavigation

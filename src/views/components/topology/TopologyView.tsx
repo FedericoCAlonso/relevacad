@@ -775,8 +775,8 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
         </Panel>
       )}
 
-      {/* Tarjeta de Información del Espacio Seleccionado */}
-      {selectedRoom && !isChainMode && (
+      {/* Tarjeta de Información del Espacio Seleccionado (Solo Escritorio; en móvil se usa RoomDetailDialog) */}
+      {!isMobile && selectedRoom && !isChainMode && (
         <Panel position="bottom-right" style={{ margin: 16, maxWidth: 360, zIndex: 10 }}>
           <Card elevation={3} sx={{ borderRadius: 3, border: '1px solid #e0e7ee', bgcolor: '#ffffff' }}>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
@@ -842,16 +842,18 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
         maxZoom={2.5}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#cbd5e1" />
-        <Controls showInteractive={false} position="bottom-left" style={{ margin: 16 }} />
-        <MiniMap
-          nodeColor={(n) => {
-            const r = rooms.find((rm) => rm.id === n.id);
-            return r?.color || '#cbd5e1';
-          }}
-          maskColor="rgba(240, 244, 248, 0.7)"
-          style={{ height: 100, width: 140, margin: 16 }}
-          position="bottom-left"
-        />
+        <Controls showInteractive={false} position="bottom-left" style={{ margin: isMobile ? 8 : 16 }} />
+        {!isMobile && (
+          <MiniMap
+            nodeColor={(n) => {
+              const r = rooms.find((rm) => rm.id === n.id);
+              return r?.color || '#cbd5e1';
+            }}
+            maskColor="rgba(240, 244, 248, 0.7)"
+            style={{ height: 100, width: 140, margin: 16 }}
+            position="bottom-left"
+          />
+        )}
       </ReactFlow>
 
       {/* Diálogo de Edición de Aberturas Arquitectónicas (Puertas / Ventanas) */}
