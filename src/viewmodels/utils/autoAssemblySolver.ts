@@ -229,17 +229,23 @@ export function solveAutoAssembly(
     });
   }
 
-  // 5. NORMALIZACIÓN Y CENTRADO DE COORDENADAS
+  // 5. NORMALIZACIÓN Y CENTRADO DE COORDENADAS (Basado en la planta métrica)
   let minX = Infinity;
   let minY = Infinity;
 
-  placed.forEach((box) => {
-    if (box.x < minX) minX = box.x;
-    if (box.y < minY) minY = box.y;
+  metricRooms.forEach((r) => {
+    const box = placed.get(r.id);
+    if (box) {
+      if (box.x < minX) minX = box.x;
+      if (box.y < minY) minY = box.y;
+    }
   });
 
-  const targetMarginX = 60;
-  const targetMarginY = 60;
+  if (minX === Infinity) minX = 0;
+  if (minY === Infinity) minY = 0;
+
+  const targetMarginX = 80;
+  const targetMarginY = 80;
   const shiftX = targetMarginX - minX;
   const shiftY = targetMarginY - minY;
 

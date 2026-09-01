@@ -369,21 +369,23 @@ export const AssemblyCanvasView: React.FC = () => {
           </Layer>
         )}
 
-        {/* Capa 3: Ambientes, Muros Constructivos, Aberturas y Elementos Eléctricos */}
+        {/* Capa 3: Ambientes Arquitectónicos Métricos, Muros y Aberturas */}
         <Layer>
-          {rooms.map((room) => (
-            <RoomAssemblyShape
-              key={room.id}
-              room={room}
-              allRooms={rooms}
-              isSelected={room.id === selectedRoomId}
-              wallThicknessPx={wallThicknessPx}
-              openings={connections}
-              onSelect={selectRoom}
-              onDragMove={handleNodeDragMove}
-              onDragEnd={handleNodeDragEnd}
-            />
-          ))}
+          {rooms
+            .filter((r) => !r.isAccessPoint && !r.isTechnicalIsland)
+            .map((room) => (
+              <RoomAssemblyShape
+                key={room.id}
+                room={room}
+                allRooms={rooms}
+                isSelected={room.id === selectedRoomId}
+                wallThicknessPx={wallThicknessPx}
+                openings={connections}
+                onSelect={selectRoom}
+                onDragMove={handleNodeDragMove}
+                onDragEnd={handleNodeDragEnd}
+              />
+            ))}
         </Layer>
       </Stage>
     </Box>

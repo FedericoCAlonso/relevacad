@@ -7,7 +7,7 @@
  */
 
 import React, { memo, useRef, useEffect } from 'react';
-import { Group, Rect, Text, Line, Path } from 'react-konva';
+import { Group, Rect, Text, Line } from 'react-konva';
 import Konva from 'konva';
 import { Room, TIPO_CUBIERTA_CATALOG } from '@/models/RoomModel';
 import { LogicalConnection } from '@/models/GraphModel';
@@ -19,9 +19,6 @@ import {
 } from '@/viewmodels/utils/polygonSolver';
 import { calculateRoomPlanimetry } from '@/viewmodels/utils/unifiedFloorPlanSolver';
 import { ArchitecturalOpeningShape } from './ArchitecturalOpeningShape';
-
-const CLOUD_PATH_DATA =
-  'M 30,65 a 22,22 0 0,1 26,-15 a 30,30 0 0,1 52,-4 a 22,22 0 0,1 36,10 a 22,22 0 0,1 -6,38 h -90 a 20,20 0 0,1 -18,-29 z';
 
 interface RoomAssemblyShapeProps {
   room: Room;
@@ -73,80 +70,9 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     allRooms
   ]);
 
-  // ☁️ 1. RENDERIZADO COMO NUBE PARA ACCESOS E ISLAS TÉCNICAS (Sin muros rígidos)
+  // Los accesos e islas técnicas (nubes) no se dibujan en la vista de ensamble arquitectónico
   if (isNonMetric) {
-    const cloudFill = room.isTechnicalIsland ? '#fef3c7' : '#ecfdf5';
-    const cloudStroke = isSelected
-      ? '#00629e'
-      : room.isTechnicalIsland
-      ? '#d97706'
-      : '#10b981';
-
-    return (
-      <Group
-        id={room.id}
-        x={room.canvasPosition.x}
-        y={room.canvasPosition.y}
-        draggable
-        onClick={(e) => {
-          e.cancelBubble = true;
-          onSelect(room.id);
-        }}
-        onTap={(e) => {
-          e.cancelBubble = true;
-          onSelect(room.id);
-        }}
-        onDragMove={(e) => {
-          e.cancelBubble = true;
-          onDragMove(room.id, e.target);
-        }}
-        onDragEnd={(e) => {
-          e.cancelBubble = true;
-          onDragEnd(room.id, e.target);
-        }}
-      >
-        <Group ref={innerRef}>
-          <Path
-            data={CLOUD_PATH_DATA}
-            scaleX={1.15}
-            scaleY={1.1}
-            fill={cloudFill}
-            opacity={0.88}
-            stroke={cloudStroke}
-            strokeWidth={isSelected ? 3 : 2}
-            dash={[6, 4]}
-            shadowColor={isSelected ? '#00629e' : '#000000'}
-            shadowBlur={isSelected ? 14 : 4}
-            shadowOpacity={0.2}
-            perfectDrawEnabled={false}
-          />
-
-          <Text
-            text={`☁️ ${room.name}`}
-            x={15}
-            y={42}
-            fontSize={11}
-            fontStyle="bold"
-            fontFamily="Outfit, Roboto, sans-serif"
-            fill={room.isTechnicalIsland ? '#92400e' : '#065f46'}
-            width={150}
-            align="center"
-            listening={false}
-          />
-          <Text
-            text={room.isTechnicalIsland ? 'Isla de Suministro' : 'Límite Exterior / Palier'}
-            x={15}
-            y={58}
-            fontSize={8.5}
-            fontFamily="Outfit, Roboto, sans-serif"
-            fill="#64748b"
-            width={150}
-            align="center"
-            listening={false}
-          />
-        </Group>
-      </Group>
-    );
+    return null;
   }
 
   // 🏠 2. RECINTO ARQUITECTÓNICO CONSTRUCTIVO
