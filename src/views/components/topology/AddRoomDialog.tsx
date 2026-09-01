@@ -18,6 +18,8 @@ import {
   Stack,
   Tabs,
   Tab,
+  ToggleButton,
+  ToggleButtonGroup,
   useMediaQuery,
   useTheme
 } from '@mui/material';
@@ -27,7 +29,12 @@ import {
   DoorSliding as EntryIcon,
   ElectricMeter as IslandIcon
 } from '@mui/icons-material';
-import { RoomType, ROOM_TYPE_CATALOG } from '@/models/RoomModel';
+import {
+  RoomType,
+  ROOM_TYPE_CATALOG,
+  TipoCubierta,
+  TIPO_CUBIERTA_CATALOG
+} from '@/models/RoomModel';
 import { useSurveyViewModel } from '@/viewmodels';
 
 interface AddRoomDialogProps {
@@ -54,6 +61,7 @@ export const AddRoomDialog: React.FC<AddRoomDialogProps> = ({
       ? 'access_street'
       : 'living'
   );
+  const [tipoCubierta, setTipoCubierta] = useState<TipoCubierta>('cubierto');
   const [name, setName] = useState('');
   const [width, setWidth] = useState<number>(4.0);
   const [length, setLength] = useState<number>(4.5);
@@ -76,6 +84,7 @@ export const AddRoomDialog: React.FC<AddRoomDialogProps> = ({
     setType(newType);
     const preset = ROOM_TYPE_CATALOG[newType];
     setName(preset.label);
+    setTipoCubierta(preset.defaultCubierta || 'cubierto');
     setWidth(preset.defaultWidth);
     setLength(preset.defaultLength);
     setHeight(preset.defaultHeight);
@@ -89,7 +98,8 @@ export const AddRoomDialog: React.FC<AddRoomDialogProps> = ({
         type,
         isInteriorMode ? { width, length, height } : { width: 0, length: 0, height: 0 },
         isAccessMode,
-        isTechnicalMode
+        isTechnicalMode,
+        tipoCubierta
       );
       selectRoom(newRoom.id);
       onClose();
@@ -183,6 +193,43 @@ export const AddRoomDialog: React.FC<AddRoomDialogProps> = ({
             fullWidth
             required
           />
+
+          {/* Tipo de Cubierta (Cubierto / Semicubierto / Descubierto) */}
+          <Box>
+            <Typography variant="caption" fontWeight={600} color="text.secondary" gutterBottom display="block">
+              Tipo de Cubierta / Cerramiento
+            </Typography>
+            <ToggleButtonGroup
+              value={tipoCubierta}
+              exclusive
+              onChange={(_, val) => {
+                if (val) setTipoCubierta(val);
+              }}
+              fullWidth
+              size="small"
+            >
+              {Object.values(TIPO_CUBIERTA_CATALOG).map((cub) => (
+                <ToggleButton
+                  key={cub.tipo}
+                  value={cub.tipo}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    py: 0.8
+                  }}
+                >
+                  <Stack direction="row" spacing={0.6} alignItems="center">
+                    <span>{cub.emoji}</span>
+                    <span>{cub.label}</span>
+                  </Stack>
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: '0.7rem' }}>
+              {TIPO_CUBIERTA_CATALOG[tipoCubierta]?.description}
+            </Typography>
+          </Box>
 
           {/* Dimensiones (Exclusivas para Ambientes Interiores Propios) */}
           {isInteriorMode ? (

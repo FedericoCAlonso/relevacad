@@ -32,7 +32,11 @@ import {
   AutoAwesome as SparkleIcon,
   Link as LinkIcon
 } from '@mui/icons-material';
-import { ROOM_TYPE_CATALOG } from '@/models/RoomModel';
+import {
+  ROOM_TYPE_CATALOG,
+  TipoCubierta,
+  TIPO_CUBIERTA_CATALOG
+} from '@/models/RoomModel';
 import {
   NodoElectrico,
   TIPO_NODO_ELECTRICO_CATALOG
@@ -42,6 +46,7 @@ export interface RoomNodeData {
   roomId: string;
   name: string;
   roomType: string;
+  tipoCubierta?: TipoCubierta;
   isAccessPoint?: boolean;
   isTechnicalIsland?: boolean;
   isCommonArea?: boolean;
@@ -79,6 +84,10 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
   const roomTypeMeta =
     ROOM_TYPE_CATALOG[nodeData.roomType as keyof typeof ROOM_TYPE_CATALOG] ||
     ROOM_TYPE_CATALOG.other;
+
+  const cubiertaMeta = TIPO_CUBIERTA_CATALOG[nodeData.tipoCubierta || 'cubierto'];
+  const isDescubierto = nodeData.tipoCubierta === 'descubierto';
+  const isSemicubierto = nodeData.tipoCubierta === 'semicubierto';
 
   const isAccess = nodeData.isAccessPoint || roomTypeMeta.isAccess;
   const isTechnical = nodeData.isTechnicalIsland || roomTypeMeta.isTechnical;
@@ -136,11 +145,11 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
             id="target-north"
             style={{
               background: handleColor,
-              width: 14,
-              height: 14,
+              width: 10,
+              height: 10,
               border: '2px solid #ffffff',
               zIndex: 10,
-              top: -7
+              top: -5
             }}
           />
           <Handle
@@ -149,79 +158,69 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
             id="source-north"
             style={{
               background: handleColor,
-              width: 14,
-              height: 14,
+              width: 10,
+              height: 10,
               border: '2px solid #ffffff',
               zIndex: 10,
-              top: -7
+              top: -5
             }}
           />
-          <Box
-            sx={{
-              position: 'absolute',
-              top: -18,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              bgcolor: handleColor,
-              color: '#ffffff',
-              fontSize: '0.62rem',
-              fontWeight: 800,
-              px: 0.5,
-              borderRadius: 1,
-              lineHeight: 1.2,
-              pointerEvents: 'none',
-              zIndex: 5
-            }}
-          >
-            N
-          </Box>
 
           {/* PARED SUR (Bottom) */}
-          <Handle
-            type="target"
-            position={Position.Bottom}
-            id="target-south"
-            style={{
-              background: handleColor,
-              width: 14,
-              height: 14,
-              border: '2px solid #ffffff',
-              zIndex: 10,
-              bottom: -7
-            }}
-          />
           <Handle
             type="source"
             position={Position.Bottom}
             id="source-south"
             style={{
               background: handleColor,
-              width: 14,
-              height: 14,
+              width: 10,
+              height: 10,
               border: '2px solid #ffffff',
               zIndex: 10,
-              bottom: -7
+              bottom: -5
             }}
           />
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: -18,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              bgcolor: handleColor,
-              color: '#ffffff',
-              fontSize: '0.62rem',
-              fontWeight: 800,
-              px: 0.5,
-              borderRadius: 1,
-              lineHeight: 1.2,
-              pointerEvents: 'none',
-              zIndex: 5
+          <Handle
+            type="target"
+            position={Position.Bottom}
+            id="target-south"
+            style={{
+              background: handleColor,
+              width: 10,
+              height: 10,
+              border: '2px solid #ffffff',
+              zIndex: 10,
+              bottom: -5
             }}
-          >
-            S
-          </Box>
+          />
+
+          {/* PARED ESTE (Right) */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="source-east"
+            style={{
+              background: handleColor,
+              width: 10,
+              height: 10,
+              border: '2px solid #ffffff',
+              zIndex: 10,
+              right: -5
+            }}
+          />
+          <Handle
+            type="target"
+            position={Position.Right}
+            id="target-east"
+            style={{
+              background: handleColor,
+              width: 10,
+              height: 10,
+              border: '2px solid #ffffff',
+              zIndex: 10,
+              right: -5
+            }}
+          />
 
           {/* PARED OESTE (Left) */}
           <Handle
@@ -230,11 +229,11 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
             id="target-west"
             style={{
               background: handleColor,
-              width: 14,
-              height: 14,
+              width: 10,
+              height: 10,
               border: '2px solid #ffffff',
               zIndex: 10,
-              left: -7
+              left: -5
             }}
           />
           <Handle
@@ -243,79 +242,13 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
             id="source-west"
             style={{
               background: handleColor,
-              width: 14,
-              height: 14,
+              width: 10,
+              height: 10,
               border: '2px solid #ffffff',
               zIndex: 10,
-              left: -7
+              left: -5
             }}
           />
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '50%',
-              left: -20,
-              transform: 'translateY(-50%)',
-              bgcolor: handleColor,
-              color: '#ffffff',
-              fontSize: '0.62rem',
-              fontWeight: 800,
-              px: 0.5,
-              borderRadius: 1,
-              lineHeight: 1.2,
-              pointerEvents: 'none',
-              zIndex: 5
-            }}
-          >
-            O
-          </Box>
-
-          {/* PARED ESTE (Right) */}
-          <Handle
-            type="target"
-            position={Position.Right}
-            id="target-east"
-            style={{
-              background: handleColor,
-              width: 14,
-              height: 14,
-              border: '2px solid #ffffff',
-              zIndex: 10,
-              right: -7
-            }}
-          />
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="source-east"
-            style={{
-              background: handleColor,
-              width: 14,
-              height: 14,
-              border: '2px solid #ffffff',
-              zIndex: 10,
-              right: -7
-            }}
-          />
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '50%',
-              right: -18,
-              transform: 'translateY(-50%)',
-              bgcolor: handleColor,
-              color: '#ffffff',
-              fontSize: '0.62rem',
-              fontWeight: 800,
-              px: 0.5,
-              borderRadius: 1,
-              lineHeight: 1.2,
-              pointerEvents: 'none',
-              zIndex: 5
-            }}
-          >
-            E
-          </Box>
         </>
       )}
 
@@ -330,8 +263,20 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
             ? '1.5px dashed #d97706'
             : isAccess
             ? '1.5px dashed #10b981'
+            : isDescubierto
+            ? '1.5px dashed #16a34a'
+            : isSemicubierto
+            ? '1.5px solid #d97706'
             : '1px solid #d0d7de',
-          bgcolor: isTechnical ? '#fffbeb' : isAccess ? '#f0fdf4' : '#ffffff',
+          bgcolor: isTechnical
+            ? '#fffbeb'
+            : isAccess
+            ? '#f0fdf4'
+            : isDescubierto
+            ? '#f0fdf4'
+            : isSemicubierto
+            ? '#fffdfa'
+            : '#ffffff',
           overflow: 'visible',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           boxShadow: nodeData.isAnySubTreeActive && isRoomInActiveSubtree
@@ -370,6 +315,18 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
                     sx={{ height: 19, fontSize: '0.65rem', fontWeight: 600, px: 0.2 }}
                   />
                   <Chip
+                    label={`${cubiertaMeta.emoji} ${cubiertaMeta.shortLabel}`}
+                    size="small"
+                    sx={{
+                      height: 19,
+                      fontSize: '0.62rem',
+                      fontWeight: 700,
+                      bgcolor: cubiertaMeta.badgeBg,
+                      color: cubiertaMeta.color,
+                      px: 0.2
+                    }}
+                  />
+                  <Chip
                     icon={<BoltIcon sx={{ fontSize: '11px !important' }} />}
                     label={`${nodeData.electricalNodes.length}`}
                     size="small"
@@ -379,18 +336,32 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
                   />
                 </>
               ) : (
-                <Chip
-                  label={getBadgeLabel()}
-                  size="small"
-                  variant="filled"
-                  sx={{
-                    height: 19,
-                    fontSize: '0.62rem',
-                    fontWeight: 700,
-                    bgcolor: isTechnical ? '#fef3c7' : '#d1fae5',
-                    color: isTechnical ? '#b45309' : '#065f46'
-                  }}
-                />
+                <>
+                  <Chip
+                    label={getBadgeLabel()}
+                    size="small"
+                    variant="filled"
+                    sx={{
+                      height: 19,
+                      fontSize: '0.62rem',
+                      fontWeight: 700,
+                      bgcolor: isTechnical ? '#fef3c7' : '#d1fae5',
+                      color: isTechnical ? '#b45309' : '#065f46'
+                    }}
+                  />
+                  <Chip
+                    label={`${cubiertaMeta.emoji} ${cubiertaMeta.shortLabel}`}
+                    size="small"
+                    sx={{
+                      height: 19,
+                      fontSize: '0.62rem',
+                      fontWeight: 700,
+                      bgcolor: cubiertaMeta.badgeBg,
+                      color: cubiertaMeta.color,
+                      px: 0.2
+                    }}
+                  />
+                </>
               )}
             </Stack>
 
@@ -444,6 +415,17 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
                     fontWeight: 700,
                     bgcolor: isTechnical ? '#fef3c7' : isAccess ? '#d1fae5' : '#e0f2fe',
                     color: isTechnical ? '#b45309' : isAccess ? '#065f46' : '#0369a1'
+                  }}
+                />
+                <Chip
+                  label={`${cubiertaMeta.emoji} ${cubiertaMeta.label}`}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    bgcolor: cubiertaMeta.badgeBg,
+                    color: cubiertaMeta.color
                   }}
                 />
               </Stack>

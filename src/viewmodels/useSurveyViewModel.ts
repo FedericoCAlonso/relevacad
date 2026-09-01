@@ -9,6 +9,7 @@ import { useSurveyStore } from './surveyStore';
 import {
   RoomDimensions,
   RoomType,
+  TipoCubierta,
   ElectricalAsset,
   WallOrientation,
   RoomGeometry,
@@ -220,7 +221,8 @@ export function useSurveyViewModel() {
       type: RoomType,
       customDims?: Partial<RoomDimensions>,
       isAccess?: boolean,
-      isTechnical?: boolean
+      isTechnical?: boolean,
+      tipoCubierta?: TipoCubierta
     ) => {
       const preset = ROOM_TYPE_CATALOG[type] || ROOM_TYPE_CATALOG.other;
       const initialDims: RoomDimensions = {
@@ -235,6 +237,7 @@ export function useSurveyViewModel() {
       return addRoomAction({
         name: name.trim() || preset.label,
         type,
+        tipoCubierta: tipoCubierta || preset.defaultCubierta || 'cubierto',
         isAccessPoint,
         isTechnicalIsland,
         isCommonArea: isAccessPoint || isTechnicalIsland,
@@ -532,6 +535,9 @@ export function useSurveyViewModel() {
     updateWallBreak: updateWallBreakAction,
     removeWallBreak: removeWallBreakAction,
     renameRoom: (roomId: string, name: string) => updateRoomAction(roomId, { name: name.trim() }),
+    updateRoomCubierta: (roomId: string, tipoCubierta: TipoCubierta) =>
+      updateRoomAction(roomId, { tipoCubierta }),
+    updateRoom: updateRoomAction,
     deleteRoom: removeRoomAction,
     updateRoomTopologyPosition: updateRoomTopologyPositionAction,
 

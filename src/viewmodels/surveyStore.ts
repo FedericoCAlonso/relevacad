@@ -1204,6 +1204,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       id: isTechnical ? `island-${Date.now()}` : isAccess ? `entry-${Date.now()}` : `room-${Date.now()}`,
       name: roomData.name || preset.label,
       type: roomData.type || 'other',
+      tipoCubierta: roomData.tipoCubierta || preset.defaultCubierta || 'cubierto',
       isTechnicalIsland: isTechnical,
       isAccessPoint: isAccess,
       isCommonArea: roomData.isCommonArea || isTechnical || isAccess,

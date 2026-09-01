@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Card, CardContent, Typography, Box, Chip, Stack } from '@mui/material';
-import { Room } from '@/models/RoomModel';
+import { Room, TIPO_CUBIERTA_CATALOG } from '@/models/RoomModel';
 import { ELECTRICAL_ASSET_CATALOG } from '@/models/ElectricalTypes';
 import {
   calculateRoomPolygon,
@@ -22,6 +22,7 @@ interface RoomSchematicPreviewProps {
 export const RoomSchematicPreview: React.FC<RoomSchematicPreviewProps> = ({ room }) => {
   const geom = room.geometry;
   const isParametric = geom?.mode === 'independent_walls' || geom?.mode === 'diagonal_triangulated';
+  const cubiertaMeta = TIPO_CUBIERTA_CATALOG[room.tipoCubierta || 'cubierto'];
 
   // Dimensiones del visor SVG
   const svgWidth = 400;
@@ -68,9 +69,20 @@ export const RoomSchematicPreview: React.FC<RoomSchematicPreviewProps> = ({ room
             Plano Paramétrico ({realArea} m²)
           </Typography>
           <Stack direction="row" spacing={0.5}>
+            <Chip
+              label={`${cubiertaMeta.emoji} ${cubiertaMeta.label}`}
+              size="small"
+              sx={{
+                fontSize: '0.68rem',
+                height: 20,
+                fontWeight: 700,
+                bgcolor: cubiertaMeta.badgeBg,
+                color: cubiertaMeta.color
+              }}
+            />
             {isParametric && (
               <Chip
-                label="Falsa Escuadra Activa"
+                label="Falsa Escuadra"
                 size="small"
                 color="secondary"
                 variant="outlined"

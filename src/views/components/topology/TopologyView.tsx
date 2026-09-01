@@ -232,6 +232,7 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
             roomId: room.id,
             name: room.name,
             roomType: room.type,
+            tipoCubierta: room.tipoCubierta || 'cubierto',
             isAccessPoint: room.isAccessPoint,
             isTechnicalIsland: room.isTechnicalIsland,
             isCommonArea: room.isCommonArea,

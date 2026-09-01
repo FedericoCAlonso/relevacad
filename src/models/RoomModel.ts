@@ -92,10 +92,57 @@ export interface RoomCanvasPosition {
   rotation?: number;
 }
 
+export type TipoCubierta = 'cubierto' | 'semicubierto' | 'descubierto';
+
+export interface TipoCubiertaMetadata {
+  tipo: TipoCubierta;
+  label: string;
+  emoji: string;
+  shortLabel: string;
+  hasRoof: boolean;
+  description: string;
+  color: string;
+  badgeBg: string;
+}
+
+export const TIPO_CUBIERTA_CATALOG: Record<TipoCubierta, TipoCubiertaMetadata> = {
+  cubierto: {
+    tipo: 'cubierto',
+    label: 'Cubierto',
+    emoji: '🏠',
+    shortLabel: 'Cubierto',
+    hasRoof: true,
+    description: 'Espacio cerrado con losa/techo completo y muros perimetrales',
+    color: '#0284c7',
+    badgeBg: '#e0f2fe'
+  },
+  semicubierto: {
+    tipo: 'semicubierto',
+    label: 'Semicubierto',
+    emoji: '⛱️',
+    shortLabel: 'Semicubierto',
+    hasRoof: true,
+    description: 'Galería, porche, alero, balcón techado o cochera semicubierta',
+    color: '#d97706',
+    badgeBg: '#fef3c7'
+  },
+  descubierto: {
+    tipo: 'descubierto',
+    label: 'Descubierto',
+    emoji: '☀️',
+    shortLabel: 'Descubierto (Sin Techo)',
+    hasRoof: false,
+    description: 'Patio, jardín, terraza, fondo o azotea abierta al cielo',
+    color: '#16a34a',
+    badgeBg: '#dcfce7'
+  }
+};
+
 export interface Room {
   id: string;
   name: string;
   type: RoomType;
+  tipoCubierta?: TipoCubierta; // Tipo de cubierta: cubierto, semicubierto o descubierto (sin techo)
   isAccessPoint?: boolean;    // Punto de acceso/ingreso
   isTechnicalIsland?: boolean;// Isla técnica de suministro (Sala de medidores, pilar, etc.)
   isCommonArea?: boolean;     // Área común sin necesidad de dimensionamiento milimétrico
@@ -115,6 +162,7 @@ export interface RoomTypeMetadata {
   label: string;
   isAccess: boolean;
   isTechnical: boolean;
+  defaultCubierta: TipoCubierta;
   defaultWidth: number;
   defaultLength: number;
   defaultHeight: number;
@@ -130,6 +178,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Estar / Comedor',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 4.5,
     defaultLength: 5.5,
     defaultHeight: 2.6,
@@ -142,6 +191,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Cocina',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 3.0,
     defaultLength: 4.0,
     defaultHeight: 2.6,
@@ -154,6 +204,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Dormitorio',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 3.5,
     defaultLength: 4.0,
     defaultHeight: 2.6,
@@ -166,6 +217,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Baño',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 2.0,
     defaultLength: 2.5,
     defaultHeight: 2.4,
@@ -178,6 +230,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Circulación / Pasillo',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 1.5,
     defaultLength: 3.0,
     defaultHeight: 2.6,
@@ -190,6 +243,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Gabinete / Tablero',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 1.5,
     defaultLength: 1.5,
     defaultHeight: 2.6,
@@ -202,6 +256,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Lavadero',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 2.0,
     defaultLength: 2.5,
     defaultHeight: 2.6,
@@ -214,6 +269,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Cochera / Garaje',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 3.5,
     defaultLength: 6.0,
     defaultHeight: 2.6,
@@ -226,6 +282,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Balcón / Terraza',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'semicubierto',
     defaultWidth: 3.5,
     defaultLength: 1.5,
     defaultHeight: 2.6,
@@ -238,6 +295,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Patio Exterior',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'descubierto',
     defaultWidth: 4.0,
     defaultLength: 5.0,
     defaultHeight: 3.0,
@@ -250,6 +308,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Otro Espacio',
     isAccess: false,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 3.0,
     defaultLength: 3.0,
     defaultHeight: 2.6,
@@ -264,6 +323,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Calle / Línea Municipal',
     isAccess: true,
     isTechnical: false,
+    defaultCubierta: 'descubierto',
     defaultWidth: 4.0,
     defaultLength: 2.0,
     defaultHeight: 0,
@@ -276,6 +336,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Palier Común (Edificio)',
     isAccess: true,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 2.5,
     defaultLength: 2.5,
     defaultHeight: 0,
@@ -288,6 +349,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Portón de Cochera',
     isAccess: true,
     isTechnical: false,
+    defaultCubierta: 'semicubierto',
     defaultWidth: 3.0,
     defaultLength: 2.0,
     defaultHeight: 0,
@@ -300,6 +362,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Patio / Jardín Común',
     isAccess: true,
     isTechnical: false,
+    defaultCubierta: 'descubierto',
     defaultWidth: 3.0,
     defaultLength: 3.0,
     defaultHeight: 0,
@@ -312,6 +375,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Entrada de Servicio',
     isAccess: true,
     isTechnical: false,
+    defaultCubierta: 'cubierto',
     defaultWidth: 2.0,
     defaultLength: 2.0,
     defaultHeight: 0,
@@ -326,6 +390,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Sala de Medidores (Subsuelo)',
     isAccess: false,
     isTechnical: true,
+    defaultCubierta: 'cubierto',
     defaultWidth: 0,
     defaultLength: 0,
     defaultHeight: 0,
@@ -338,6 +403,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Pilar de Medición (L.M.)',
     isAccess: false,
     isTechnical: true,
+    defaultCubierta: 'descubierto',
     defaultWidth: 0,
     defaultLength: 0,
     defaultHeight: 0,
@@ -350,6 +416,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Pleno Técnico / Montante',
     isAccess: false,
     isTechnical: true,
+    defaultCubierta: 'cubierto',
     defaultWidth: 0,
     defaultLength: 0,
     defaultHeight: 0,
@@ -362,6 +429,7 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     label: 'Cámara Jabalina PAT',
     isAccess: false,
     isTechnical: true,
+    defaultCubierta: 'descubierto',
     defaultWidth: 0,
     defaultLength: 0,
     defaultHeight: 0,

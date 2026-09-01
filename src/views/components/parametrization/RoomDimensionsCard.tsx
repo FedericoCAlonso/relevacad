@@ -18,6 +18,8 @@ import {
   Chip,
   Tabs,
   Tab,
+  ToggleButton,
+  ToggleButtonGroup,
   IconButton,
   Tooltip,
   Button,
@@ -35,7 +37,11 @@ import {
   Delete as DeleteIcon,
   FormatShapes as ShapeIcon
 } from '@mui/icons-material';
-import { Room, WallOrientation } from '@/models/RoomModel';
+import {
+  Room,
+  WallOrientation,
+  TIPO_CUBIERTA_CATALOG
+} from '@/models/RoomModel';
 import { useSurveyViewModel } from '@/viewmodels';
 import {
   calculateTheoreticalDiagonal,
@@ -51,6 +57,7 @@ interface RoomDimensionsCardProps {
 export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) => {
   const {
     updateRoomDimensions,
+    updateRoomCubierta,
     updateRoomGeometry,
     updateIndependentWall,
     setDiagonalConstraint,
@@ -106,7 +113,7 @@ export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) 
 
   const handleHeightChange = (val: string) => {
     const num = parseFloat(val);
-    if (!isNaN(num) && num > 0) {
+    if (!isNaN(num) && num >= 0) {
       updateRoomDimensions(room.id, { height: num });
     }
   };
@@ -181,6 +188,47 @@ export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) 
             variant="outlined"
             sx={{ fontSize: '0.72rem', fontWeight: 600 }}
           />
+        </Box>
+
+        {/* Selector de Tipo de Cubierta / Cerramiento */}
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: 2.5, border: '1px solid #e2e8f0' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
+            <Box>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" textTransform="uppercase">
+                Cubierta / Cerramiento Superior
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                {TIPO_CUBIERTA_CATALOG[room.tipoCubierta || 'cubierto']?.description}
+              </Typography>
+            </Box>
+            <ToggleButtonGroup
+              value={room.tipoCubierta || 'cubierto'}
+              exclusive
+              onChange={(_, val) => {
+                if (val) updateRoomCubierta(room.id, val);
+              }}
+              size="small"
+            >
+              {Object.values(TIPO_CUBIERTA_CATALOG).map((cub) => (
+                <ToggleButton
+                  key={cub.tipo}
+                  value={cub.tipo}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    py: 0.4,
+                    px: 1.2
+                  }}
+                >
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <span>{cub.emoji}</span>
+                    <span>{cub.label}</span>
+                  </Stack>
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </Stack>
         </Box>
 
         {/* Selector de Modo: Ortogonal vs 4 Muros Independientes */}

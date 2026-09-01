@@ -42,6 +42,7 @@ import {
 } from '@/viewmodels/utils/polygonSolver';
 import { ELECTRICAL_ASSET_CATALOG } from '@/models/ElectricalTypes';
 import { CONNECTION_TYPE_CATALOG, LogicalConnection } from '@/models/GraphModel';
+import { TIPO_CUBIERTA_CATALOG } from '@/models/RoomModel';
 import { ArchitecturalOpeningShape } from './ArchitecturalOpeningShape';
 
 // SVG Path escalado para contorno orgánico de Nube Arquitectónica
@@ -640,9 +641,9 @@ export const AssemblyCanvasView: React.FC = () => {
                   />
                 )}
 
-                {/* Nombre y Dimensiones Interiores Netas con estado de bloqueo */}
+                {/* Nombre y Dimensiones Interiores Netas con estado de bloqueo y tipo de cubierta */}
                 <Text
-                  text={room.name}
+                  text={`${TIPO_CUBIERTA_CATALOG[room.tipoCubierta || 'cubierto']?.emoji || '🏠'} ${room.name}`}
                   x={10}
                   y={12}
                   fontSize={11.5}
@@ -653,12 +654,12 @@ export const AssemblyCanvasView: React.FC = () => {
                   align="center"
                 />
                 <Text
-                  text={`${widthText} × ${lengthText}m • ${realArea}m²`}
+                  text={`${widthText} × ${lengthText}m • ${realArea}m² • ${TIPO_CUBIERTA_CATALOG[room.tipoCubierta || 'cubierto']?.shortLabel || 'Cubierto'}`}
                   x={10}
                   y={27}
-                  fontSize={9}
+                  fontSize={8.5}
                   fontFamily="Roboto, sans-serif"
-                  fill={!isWLocked || !isLLocked ? '#0284c7' : '#64748b'}
+                  fill={room.tipoCubierta === 'descubierto' ? '#16a34a' : room.tipoCubierta === 'semicubierto' ? '#d97706' : !isWLocked || !isLLocked ? '#0284c7' : '#64748b'}
                   width={widthPx - 20}
                   align="center"
                 />

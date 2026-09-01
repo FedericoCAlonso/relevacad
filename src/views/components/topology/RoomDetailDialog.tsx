@@ -24,6 +24,8 @@ import {
   ListItemIcon,
   Divider,
   Paper,
+  ToggleButton,
+  ToggleButtonGroup,
   useTheme,
   useMediaQuery
 } from '@mui/material';
@@ -41,7 +43,10 @@ import {
   ToggleOn as SwitchIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
-import { ROOM_TYPE_CATALOG } from '@/models/RoomModel';
+import {
+  ROOM_TYPE_CATALOG,
+  TIPO_CUBIERTA_CATALOG
+} from '@/models/RoomModel';
 import { TIPO_NODO_ELECTRICO_CATALOG } from '@/models/ElectricalGraphModel';
 
 interface RoomDetailDialogProps {
@@ -65,6 +70,7 @@ export const RoomDetailDialog: React.FC<RoomDetailDialogProps> = ({
     electricalNodes,
     deleteNodoElectrico,
     deleteRoom,
+    updateRoomCubierta,
     setActivePhase,
     selectRoom
   } = useSurveyViewModel();
@@ -156,6 +162,73 @@ export const RoomDetailDialog: React.FC<RoomDetailDialogProps> = ({
       </DialogTitle>
 
       <DialogContent dividers sx={{ px: 2, py: 2 }}>
+        {/* Selector Interactivo de Tipo de Cubierta */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1.5,
+            mb: 2,
+            borderRadius: 3,
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          <Typography variant="caption" fontWeight={700} color="text.secondary" textTransform="uppercase" letterSpacing={0.5} display="block" mb={0.8}>
+            Tipo de Cubierta
+          </Typography>
+          <ToggleButtonGroup
+            value={room.tipoCubierta || 'cubierto'}
+            exclusive
+            onChange={(_, val) => {
+              if (val) updateRoomCubierta(room.id, val);
+            }}
+            fullWidth
+            size="small"
+          >
+            {Object.values(TIPO_CUBIERTA_CATALOG).map((cub) => (
+              <ToggleButton
+                key={cub.tipo}
+                value={cub.tipo}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  py: 0.6
+                }}
+              >
+                <Stack direction="row" spacing={0.6} alignItems="center">
+                  <span>{cub.emoji}</span>
+                  <span>{cub.label}</span>
+                </Stack>
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.6, fontSize: '0.7rem' }}>
+            {TIPO_CUBIERTA_CATALOG[room.tipoCubierta || 'cubierto']?.description}
+          </Typography>
+        </Paper>
+
+        {/* Aviso especial si es descubierto */}
+        {room.tipoCubierta === 'descubierto' && (
+          <Box
+            sx={{
+              p: 1.2,
+              mb: 2,
+              borderRadius: 2.5,
+              bgcolor: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}
+          >
+            <Typography variant="caption" color="#166534" fontWeight={600}>
+              ☀️ Espacio a cielo abierto (sin losa de techo). Las bocas de luz corresponden a apliques de pared o artefactos exteriores estancos IP65.
+            </Typography>
+          </Box>
+        )}
+
         {/* Tarjeta de Métricas Constructivas */}
         {!isNonMetric ? (
           <Paper
