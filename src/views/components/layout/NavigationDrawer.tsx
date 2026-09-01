@@ -80,7 +80,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
           borderTopRightRadius: 24,
           borderBottomRightRadius: 24,
           p: 2,
-          bgcolor: '#fafafa'
+          bgcolor: '#fffbf7'
         }
       }}
     >
@@ -103,7 +103,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
           </Box>
           <Box>
             <Typography variant="subtitle1" fontWeight={700} lineHeight={1.2}>
-              RelevaCAD Pro
+              RelevaCAD — IEBA
             </Typography>
             <Typography variant="caption" color="text.secondary">
               Relevamiento Topológico & Eléctrico
@@ -116,7 +116,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
       </Box>
 
       {/* Resumen del Proyecto */}
-      <Card sx={{ mb: 2.5, bgcolor: '#ffffff', border: '1px solid #e0e6ed' }}>
+      <Card sx={{ mb: 2.5, bgcolor: '#ffffff', border: '1px solid #e8e2d4' }}>
         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
           <Typography variant="caption" fontWeight={600} color="text.secondary" textTransform="uppercase" letterSpacing={0.5}>
             Métricas de Obra

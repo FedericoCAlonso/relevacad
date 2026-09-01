@@ -155,6 +155,8 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
 
   const isWindow = type === 'ventana_estandar' || type === 'puerta_ventana';
   const isConduit = type === 'conduit_main' || type === 'conduit_sec' || type === 'pass_through';
+  const isCommonWall = type === 'pared_comun';
+  const isOpening = !isConduit && !isCommonWall;
 
   return (
     <Dialog
@@ -169,7 +171,7 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
           <DoorIcon color="primary" />
           <Box>
             <Typography variant="h6" fontWeight={700}>
-              Propiedades de la Abertura / Vínculo
+              {isCommonWall ? 'Propiedades de Pared Común' : 'Propiedades de la Abertura / Vínculo'}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {sourceRoom?.name} ↔ {targetRoom?.name}
@@ -206,7 +208,7 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
             <Box display="flex" alignItems="center" gap={0.8} mb={1.2}>
               <CompassIcon fontSize="small" color="primary" />
               <Typography variant="caption" fontWeight={700} color="text.secondary" textTransform="uppercase">
-                Orientación Espacial de la Abertura (Paredes)
+                Orientación Espacial de la Abertura / Pared Compartida
               </Typography>
             </Box>
             <Grid container spacing={1.5}>
@@ -248,11 +250,22 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
             label="Etiqueta visible en Topología"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="Ej: Puerta Principal, Vano Cocina..."
+            placeholder="Ej: Puerta Principal, Vano Cocina, Tabique Divisorio..."
             fullWidth
           />
 
-          {!isConduit ? (
+          {isCommonWall && (
+            <Box sx={{ p: 2, bgcolor: '#f1f5f9', borderRadius: 2, border: '1px dashed #94a3b8' }}>
+              <Typography variant="body2" fontWeight={600} color="text.primary">
+                🧱 Tabique Ciego Compartido (Pared Común)
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
+                Esta conexión establece que las caras seleccionadas ({sourceWall.toUpperCase()} de {sourceRoom?.name} y {targetWall.toUpperCase()} de {targetRoom?.name}) están en contacto constructivo directo, facilitando la alineación y el ensamblaje 2D de ambos recintos.
+              </Typography>
+            </Box>
+          )}
+
+          {isOpening && (
             <>
               {/* Dimensiones físicas de la carpintería */}
               <Box>
@@ -373,7 +386,9 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
                 </Stack>
               </Box>
             </>
-          ) : (
+          )}
+
+          {isConduit && (
             /* Diámetro de Cañería para Vínculos Técnicos */
             <Grid container spacing={1.5}>
               <Grid item xs={12}>

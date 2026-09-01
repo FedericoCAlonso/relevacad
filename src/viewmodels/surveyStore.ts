@@ -10,7 +10,7 @@
  */
 
 import { create } from 'zustand';
-import { Room, ElectricalAsset, WallOrientation, ROOM_TYPE_CATALOG } from '@/models/RoomModel';
+import { Room, ElectricalAsset, WallOrientation, WallBreak, ROOM_TYPE_CATALOG } from '@/models/RoomModel';
 import {
   LogicalConnection,
   LogicalConnectionType,
@@ -99,6 +99,13 @@ export interface SurveyState {
   addElectricalAsset: (roomId: string, asset: Omit<ElectricalAsset, 'id'>) => ElectricalAsset | null;
   updateElectricalAsset: (roomId: string, assetId: string, updates: Partial<ElectricalAsset>) => void;
   removeElectricalAsset: (roomId: string, assetId: string) => void;
+
+  // Operaciones sobre Modificadores de Pared (Quiebres en Z, Nichos, Columnas)
+  addWallBreak: (roomId: string, wallBreak: Omit<WallBreak, 'id'>) => WallBreak | null;
+  updateWallBreak: (roomId: string, breakId: string, updates: Partial<WallBreak>) => void;
+  removeWallBreak: (roomId: string, breakId: string) => void;
+  toggleDimensionLock: (roomId: string, dimension: 'width' | 'length') => void;
+  inferDimension: (roomId: string, dimension: 'width' | 'length', inferredValue: number) => void;
 
   // Operaciones sobre el Canvas 2D (Ensamblaje)
   updateRoomCanvasPosition: (roomId: string, position: { x: number; y: number }) => void;
@@ -1548,6 +1555,112 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
             }
           : r
       )
+    }));
+  },
+
+  addWallBreak: (roomId, breakData) => {
+    let createdBreak: WallBreak | null = null;
+    set((state) => {
+      const room = state.rooms.find((r) => r.id === roomId);
+      if (!room) return state;
+
+      const newBreak: WallBreak = {
+        ...breakData,
+        id: `break-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+      };
+      createdBreak = newBreak;
+
+      const currentBreaks = room.geometry?.wallBreaks || [];
+      const updatedGeom = {
+        ...(room.geometry || { mode: 'rectangle' as const }),
+        wallBreaks: [...currentBreaks, newBreak]
+      };
+
+      return {
+        rooms: state.rooms.map((r) =>
+          r.id === roomId
+            ? {
+                ...r,
+                geometry: updatedGeom,
+                updatedAt: new Date().toISOString()
+              }
+            : r
+        )
+      };
+    });
+    return createdBreak;
+  },
+
+  updateWallBreak: (roomId, breakId, updates) => {
+    set((state) => ({
+      rooms: state.rooms.map((r) => {
+        if (r.id !== roomId) return r;
+        const currentBreaks = r.geometry?.wallBreaks || [];
+        const updatedBreaks = currentBreaks.map((b) => (b.id === breakId ? { ...b, ...updates } : b));
+        return {
+          ...r,
+          geometry: {
+            ...(r.geometry || { mode: 'rectangle' as const }),
+            wallBreaks: updatedBreaks
+          },
+          updatedAt: new Date().toISOString()
+        };
+      })
+    }));
+  },
+
+  removeWallBreak: (roomId, breakId) => {
+    set((state) => ({
+      rooms: state.rooms.map((r) => {
+        if (r.id !== roomId) return r;
+        const currentBreaks = r.geometry?.wallBreaks || [];
+        return {
+          ...r,
+          geometry: {
+            ...(r.geometry || { mode: 'rectangle' as const }),
+            wallBreaks: currentBreaks.filter((b) => b.id !== breakId)
+          },
+          updatedAt: new Date().toISOString()
+        };
+      })
+    }));
+  },
+
+  toggleDimensionLock: (roomId, dimension) => {
+    set((state) => ({
+      rooms: state.rooms.map((r) => {
+        if (r.id !== roomId) return r;
+        const currentDims = r.dimensions;
+        const lockKey = dimension === 'width' ? 'widthLocked' : 'lengthLocked';
+        return {
+          ...r,
+          dimensions: {
+            ...currentDims,
+            [lockKey]: !currentDims[lockKey]
+          },
+          updatedAt: new Date().toISOString()
+        };
+      })
+    }));
+  },
+
+  inferDimension: (roomId, dimension, inferredValue) => {
+    if (inferredValue <= 0) return;
+    set((state) => ({
+      rooms: state.rooms.map((r) => {
+        if (r.id !== roomId) return r;
+        const isLocked = dimension === 'width' ? r.dimensions.widthLocked : r.dimensions.lengthLocked;
+        if (isLocked) return r;
+
+        return {
+          ...r,
+          dimensions: {
+            ...r.dimensions,
+            [dimension]: Number(inferredValue.toFixed(2))
+          },
+          updatedAt: new Date().toISOString()
+        };
+      })
     }));
   },
 

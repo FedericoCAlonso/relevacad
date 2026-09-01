@@ -37,6 +37,17 @@ export interface RoomDimensions {
   width: number;   // Ancho nominal en metros (eje X)
   length: number;  // Largo / Profundidad nominal en metros (eje Y)
   height: number;  // Altura libre del local en metros (eje Z, ej: 2.60m)
+  widthLocked?: boolean;  // Cota de ancho fija/medida (false = elástica/inferible)
+  lengthLocked?: boolean; // Cota de largo fija/medida (false = elástica/inferible)
+}
+
+export interface WallBreak {
+  id: string;
+  wall: 'north' | 'south' | 'east' | 'west';
+  startOffsetMeters: number; // Distancia desde el inicio de la pared (origen cardinal) en metros
+  widthMeters: number;       // Ancho del tramo desplazado en metros
+  depthMeters: number;       // Desplazamiento en metros (+ exterior/nicho, - interior/columna)
+  label?: string;            // Etiqueta opcional (ej: "Nicho Ropero", "Columna", "Quiebre Z")
 }
 
 export interface IndependentWalls {
@@ -58,6 +69,7 @@ export interface RoomGeometry {
   independentWalls?: IndependentWalls;
   diagonalSO_NE?: number; // Cota de diagonal desde esquina SO hacia NE (m)
   cornerConstraints?: CornerAngleConstraints;
+  wallBreaks?: WallBreak[]; // Modificadores de pared (quiebres en Z, nichos, columnas, mochetas)
   computedVertices?: Array<{ x: number; y: number }>; // Vértices 2D en metros calculados por el solver
 }
 

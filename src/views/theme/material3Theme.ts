@@ -1,6 +1,6 @@
 /**
- * View: Material Design 3 Theme Configuration
- * Paleta de colores tonales y especificaciones de elevación y radios según Material You / MD3.
+ * View: Material Design 3 Theme Configuration (IEBA Series)
+ * Paleta de colores tonales cálidos y especificaciones según pwaCotizadorIeba (Seed: #755B00).
  */
 
 import { createTheme } from '@mui/material/styles';
@@ -9,15 +9,21 @@ export const material3Theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#00629e',       // M3 Key Primary
-      light: '#cce5ff',      // Primary Container
-      dark: '#004975',
+      main: '#755b00',       // IEBA Primary Seed (Oro Cálido / Ámbar profesional)
+      light: '#ffdf97',      // Primary Container
+      dark: '#594400',
       contrastText: '#ffffff'
     },
     secondary: {
-      main: '#526070',
-      light: '#d5e4f7',
-      dark: '#3b4857',
+      main: '#695e40',       // IEBA Secondary (Oliva Cálido)
+      light: '#f1e2bd',      // Secondary Container
+      dark: '#392f15',
+      contrastText: '#ffffff'
+    },
+    success: {
+      main: '#486548',       // IEBA Tertiary (Verde Salvia / Tierra)
+      light: '#cbebc6',
+      dark: '#1b361c',
       contrastText: '#ffffff'
     },
     error: {
@@ -27,27 +33,30 @@ export const material3Theme = createTheme({
       contrastText: '#ffffff'
     },
     background: {
-      default: '#f8f9fa',    // M3 Surface Background
-      paper: '#ffffff'       // M3 Surface
+      default: '#fff8f1',    // M3 Neutral-99 (Calidez Crema / Marfil IEBA)
+      paper: '#ffffff'       // Surface
     },
     text: {
-      primary: '#191c1e',
-      secondary: '#41474d'
+      primary: '#1f1b13',    // Neutral-10
+      secondary: '#635e53'   // Neutral-40
     },
-    divider: '#e0e3e7'
+    divider: '#e8e2d4'       // Neutral-Variant-90 (Borde sutil cálido)
   },
   typography: {
-    fontFamily: '"Roboto", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif',
+    fontFamily: '"Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     h5: {
-      fontWeight: 600,
-      letterSpacing: -0.2
+      fontWeight: 700,
+      letterSpacing: -0.3
     },
     h6: {
-      fontWeight: 600,
-      letterSpacing: -0.1
+      fontWeight: 700,
+      letterSpacing: -0.2
     },
     subtitle1: {
-      fontWeight: 500
+      fontWeight: 600
+    },
+    subtitle2: {
+      fontWeight: 600
     },
     button: {
       textTransform: 'none',
@@ -55,7 +64,7 @@ export const material3Theme = createTheme({
     }
   },
   shape: {
-    borderRadius: 16 // Radio estándar M3 para tarjetas y contenedores
+    borderRadius: 16 // Radio estándar M3 para tarjetas y contenedores (16px)
   },
   components: {
     MuiButton: {
@@ -64,12 +73,13 @@ export const material3Theme = createTheme({
           borderRadius: 20, // Botones M3 tipo píldora
           padding: '8px 20px',
           boxShadow: 'none',
+          fontFamily: '"Outfit", sans-serif',
           '&:hover': {
             boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.12)'
           }
         },
         containedPrimary: {
-          background: 'linear-gradient(135deg, #00629e 0%, #004e7e 100%)'
+          background: 'linear-gradient(135deg, #755b00 0%, #594400 100%)'
         }
       }
     },
@@ -77,8 +87,8 @@ export const material3Theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 16,
-          border: '1px solid #e2e8f0',
-          boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.04)',
+          border: '1px solid #e8e2d4',
+          boxShadow: '0px 1px 3px rgba(117, 91, 0, 0.04)',
           transition: 'all 0.2s ease-in-out'
         }
       }
@@ -94,16 +104,18 @@ export const material3Theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 8,
-          fontWeight: 500
+          fontWeight: 600,
+          fontFamily: '"Outfit", sans-serif'
         }
       }
     },
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: '#ffffff',
-          color: '#191c1e',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+          backgroundColor: '#fff8f1',
+          color: '#1f1b13',
+          borderBottom: '1px solid #e8e2d4',
+          boxShadow: '0 1px 3px rgba(117, 91, 0, 0.05)'
         }
       }
     },
@@ -113,7 +125,8 @@ export const material3Theme = createTheme({
           textTransform: 'none',
           fontWeight: 600,
           fontSize: '0.92rem',
-          minHeight: 48
+          minHeight: 48,
+          fontFamily: '"Outfit", sans-serif'
         }
       }
     },
@@ -125,7 +138,13 @@ export const material3Theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius: 10
+            borderRadius: 10,
+            '& fieldset': {
+              borderColor: '#e8e2d4'
+            },
+            '&:hover fieldset': {
+              borderColor: '#755b00'
+            }
           }
         }
       }

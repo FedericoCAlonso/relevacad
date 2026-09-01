@@ -564,6 +564,14 @@ export const AssemblyCanvasView: React.FC = () => {
             const eastOpenings = getOpeningsForWall(room.id, 'east');
             const westOpenings = getOpeningsForWall(room.id, 'west');
 
+            const polyPointsPx = verticesMeters.flatMap((v) => [metersToPixels(v.x), metersToPixels(v.y)]);
+            const hasBreaks = (room.geometry?.wallBreaks || []).length > 0;
+
+            const isWLocked = room.dimensions.widthLocked ?? true;
+            const isLLocked = room.dimensions.lengthLocked ?? true;
+            const widthText = isWLocked ? `${room.dimensions.width}` : `~${room.dimensions.width}`;
+            const lengthText = isLLocked ? `${room.dimensions.length}` : `~${room.dimensions.length}`;
+
             return (
               <Group
                 key={room.id}
@@ -582,18 +590,30 @@ export const AssemblyCanvasView: React.FC = () => {
                   handleRoomDragEnd();
                 }}
               >
-                {/* Superficie / Suelo Interior (Medidas Libres Netas) */}
-                <Rect
-                  x={0}
-                  y={0}
-                  width={widthPx}
-                  height={lengthPx}
-                  fill={room.color || '#f8fafc'}
-                  opacity={isSelected ? 0.95 : 0.85}
-                  shadowColor={isSelected ? '#00629e' : '#000000'}
-                  shadowBlur={isSelected ? 16 : 4}
-                  shadowOpacity={isSelected ? 0.35 : 0.08}
-                />
+                {/* Superficie / Suelo Interior (Medidas Libres Netas con soporte a Polígonos de N Vértices / Z-Walls) */}
+                {hasBreaks ? (
+                  <Line
+                    points={polyPointsPx}
+                    closed
+                    fill={room.color || '#f8fafc'}
+                    opacity={isSelected ? 0.95 : 0.85}
+                    shadowColor={isSelected ? '#00629e' : '#000000'}
+                    shadowBlur={isSelected ? 16 : 4}
+                    shadowOpacity={isSelected ? 0.35 : 0.08}
+                  />
+                ) : (
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={widthPx}
+                    height={lengthPx}
+                    fill={room.color || '#f8fafc'}
+                    opacity={isSelected ? 0.95 : 0.85}
+                    shadowColor={isSelected ? '#00629e' : '#000000'}
+                    shadowBlur={isSelected ? 16 : 4}
+                    shadowOpacity={isSelected ? 0.35 : 0.08}
+                  />
+                )}
 
                 {/* 🧱 Renderizado de los 4 Muros Perimetrales con Espesor y Aberturas Reales */}
                 {renderWallWithOpenings('north', widthPx, lengthPx, northOpenings)}
@@ -614,7 +634,7 @@ export const AssemblyCanvasView: React.FC = () => {
                   />
                 )}
 
-                {/* Nombre y Dimensiones Interiores Netas */}
+                {/* Nombre y Dimensiones Interiores Netas con estado de bloqueo */}
                 <Text
                   text={room.name}
                   x={10}
@@ -627,12 +647,12 @@ export const AssemblyCanvasView: React.FC = () => {
                   align="center"
                 />
                 <Text
-                  text={`${room.dimensions.width} × ${room.dimensions.length}m • ${realArea}m²`}
+                  text={`${widthText} × ${lengthText}m • ${realArea}m²`}
                   x={10}
                   y={27}
                   fontSize={9}
                   fontFamily="Roboto, sans-serif"
-                  fill="#64748b"
+                  fill={!isWLocked || !isLLocked ? '#0284c7' : '#64748b'}
                   width={widthPx - 20}
                   align="center"
                 />

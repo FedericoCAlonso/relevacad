@@ -73,6 +73,13 @@ export function useSurveyViewModel() {
   const addElectricalAssetAction = useSurveyStore((state) => state.addElectricalAsset);
   const updateElectricalAssetAction = useSurveyStore((state) => state.updateElectricalAsset);
   const removeElectricalAssetAction = useSurveyStore((state) => state.removeElectricalAsset);
+
+  const addWallBreakAction = useSurveyStore((state) => state.addWallBreak);
+  const updateWallBreakAction = useSurveyStore((state) => state.updateWallBreak);
+  const removeWallBreakAction = useSurveyStore((state) => state.removeWallBreak);
+  const toggleDimensionLockAction = useSurveyStore((state) => state.toggleDimensionLock);
+  const inferDimensionAction = useSurveyStore((state) => state.inferDimension);
+
   const updateRoomCanvasPositionAction = useSurveyStore((state) => state.updateRoomCanvasPosition);
   const setSnapGuidesAction = useSurveyStore((state) => state.setSnapGuides);
   const toggleSnapAction = useSurveyStore((state) => state.toggleSnap);
@@ -519,6 +526,11 @@ export function useSurveyViewModel() {
     updateIndependentWall,
     setDiagonalConstraint,
     toggleCornerLock,
+    toggleDimensionLock: toggleDimensionLockAction,
+    inferDimension: inferDimensionAction,
+    addWallBreak: addWallBreakAction,
+    updateWallBreak: updateWallBreakAction,
+    removeWallBreak: removeWallBreakAction,
     renameRoom: (roomId: string, name: string) => updateRoomAction(roomId, { name: name.trim() }),
     deleteRoom: removeRoomAction,
     updateRoomTopologyPosition: updateRoomTopologyPositionAction,

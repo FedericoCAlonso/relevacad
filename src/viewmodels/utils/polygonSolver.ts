@@ -97,18 +97,24 @@ export function calculateCornerAngles(vertices: Point2D[]): CornerAngles {
 }
 
 /**
- * Resuelve las coordenadas (x, y) en metros de los 4 vértices del ambiente
- * Orden de vértices: [V0 (NW), V1 (NE), V2 (SE), V3 (SW)]
+ * Resuelve las coordenadas (x, y) en metros de los vértices del ambiente,
+ * incorporando opcionalmente paredes con quiebres en Z, nichos de placard y columnas.
+ * Orden de vértices: Recorrido horario iniciando en NW.
  */
 export function calculateRoomPolygon(room: Room): Point2D[] {
   const width = room.dimensions.width || 3.0;
   const length = room.dimensions.length || 2.5;
 
   const geom = room.geometry;
-  const isOrthogonal = !geom || geom.mode === 'rectangle' || !geom.independentWalls;
+  const breaks = geom?.wallBreaks || [];
 
-  // 1. Caso Rectangular Ortogonal Puro
-  if (isOrthogonal) {
+  const LN = geom?.independentWalls?.north || width;
+  const LS = geom?.independentWalls?.south || width;
+  const LE = geom?.independentWalls?.east || length;
+  const LO = geom?.independentWalls?.west || length;
+
+  // Si no hay quiebres ni falsa escuadra, caso ortogonal estándar de 4 vértices
+  if (breaks.length === 0 && (!geom || geom.mode === 'rectangle' || !geom.independentWalls)) {
     return [
       { x: 0, y: 0 },         // V0: NW
       { x: width, y: 0 },     // V1: NE
@@ -117,69 +123,76 @@ export function calculateRoomPolygon(room: Room): Point2D[] {
     ];
   }
 
-  // 2. Caso con 4 Paredes Independientes + Triangulación / Constraints
-  const LN = geom.independentWalls?.north || width;
-  const LS = geom.independentWalls?.south || width;
-  const LE = geom.independentWalls?.east || length;
-  const LO = geom.independentWalls?.west || length;
+  // Helper para subdividir un segmento con sus quiebres
+  const northBreaks = breaks.filter((b) => b.wall === 'north').sort((a, b) => a.startOffsetMeters - b.startOffsetMeters);
+  const eastBreaks = breaks.filter((b) => b.wall === 'east').sort((a, b) => a.startOffsetMeters - b.startOffsetMeters);
+  const southBreaks = breaks.filter((b) => b.wall === 'south').sort((a, b) => a.startOffsetMeters - b.startOffsetMeters);
+  const westBreaks = breaks.filter((b) => b.wall === 'west').sort((a, b) => a.startOffsetMeters - b.startOffsetMeters);
 
-  const theoreticalDiag = calculateTheoreticalDiagonal(LS, LO);
-  const D = geom.diagonalSO_NE && geom.diagonalSO_NE > 0 ? geom.diagonalSO_NE : theoreticalDiag;
+  const poly: Point2D[] = [];
 
-  // Verificar si hay restricciones fijas de 90° en las esquinas
-  const locks = geom.cornerConstraints || {};
+  // 1. Pared Norte (V0 a V1, horizontal de X=0 a X=LN en Y=0)
+  poly.push({ x: 0, y: 0 });
+  for (const b of northBreaks) {
+    const s = Math.max(0, Math.min(LN, b.startOffsetMeters));
+    const e = Math.max(s, Math.min(LN, s + b.widthMeters));
+    const d = b.depthMeters; // + hacia afuera (-Y), - hacia adentro (+Y)
+    poly.push({ x: s, y: 0 });
+    poly.push({ x: s, y: -d });
+    poly.push({ x: e, y: -d });
+    poly.push({ x: e, y: 0 });
+  }
+  poly.push({ x: LN, y: 0 });
 
-  // Caso: Esquina NW y SW fijadas a 90° (Paredes Norte y Sur horizontales, Oeste vertical)
-  if (locks.northWestLocked90 && locks.southWestLocked90) {
-    return [
-      { x: 0, y: 0 },     // V0: NW
-      { x: LN, y: 0 },    // V1: NE
-      { x: LS, y: LO },   // V2: SE
-      { x: 0, y: LO }     // V3: SW
-    ];
+  // 2. Pared Este (V1 a V2, vertical de Y=0 a Y=LE en X=LN)
+  for (const b of eastBreaks) {
+    const s = Math.max(0, Math.min(LE, b.startOffsetMeters));
+    const e = Math.max(s, Math.min(LE, s + b.widthMeters));
+    const d = b.depthMeters; // + hacia afuera (+X), - hacia adentro (-X)
+    poly.push({ x: LN, y: s });
+    poly.push({ x: LN + d, y: s });
+    poly.push({ x: LN + d, y: e });
+    poly.push({ x: LN, y: e });
+  }
+  poly.push({ x: LN, y: LE });
+
+  // 3. Pared Sur (V2 a V3, horizontal de X=LS a X=0 en Y=LE/LO)
+  for (const b of southBreaks) {
+    // Offset medido desde esquina Este (origen X=LS) hacia Oeste
+    const s = Math.max(0, Math.min(LS, b.startOffsetMeters));
+    const e = Math.max(s, Math.min(LS, s + b.widthMeters));
+    const d = b.depthMeters; // + hacia afuera (+Y), - hacia adentro (-Y)
+    poly.push({ x: LS - s, y: LE });
+    poly.push({ x: LS - s, y: LE + d });
+    poly.push({ x: LS - e, y: LE + d });
+    poly.push({ x: LS - e, y: LE });
+  }
+  poly.push({ x: 0, y: LO });
+
+  // 4. Pared Oeste (V3 a V0, vertical de Y=LO a Y=0 en X=0)
+  for (const b of westBreaks) {
+    // Offset medido desde esquina Sur (Y=LO) hacia Norte (Y=0)
+    const s = Math.max(0, Math.min(LO, b.startOffsetMeters));
+    const e = Math.max(s, Math.min(LO, s + b.widthMeters));
+    const d = b.depthMeters; // + hacia afuera (-X), - hacia adentro (+X)
+    poly.push({ x: 0, y: LO - s });
+    poly.push({ x: -d, y: LO - s });
+    poly.push({ x: -d, y: LO - e });
+    poly.push({ x: 0, y: LO - e });
   }
 
-  // Triangulación completa por Ley de Cosenos:
-  // Vértice V0 (NW) en origen (0, 0)
-  // Vértice V1 (NE) en (LN, 0) a lo largo del eje X
-  const V0: Point2D = { x: 0, y: 0 };
-  const V1: Point2D = { x: LN, y: 0 };
+  // Filtrar vértices duplicados o colineales redundantes consecutivos
+  const cleaned: Point2D[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const pt = poly[i];
+    const prev = cleaned[cleaned.length - 1];
+    if (!prev || Math.hypot(pt.x - prev.x, pt.y - prev.y) > 0.005) {
+      cleaned.push({
+        x: Number(pt.x.toFixed(3)),
+        y: Number(pt.y.toFixed(3))
+      });
+    }
+  }
 
-  // En triángulo V0-V1-V3 (lados LN, D, LO):
-  // Coseno del ángulo en V0 (NW)
-  const cosV0 = Math.max(-1, Math.min(1, (LN ** 2 + LO ** 2 - D ** 2) / (2 * LN * LO)));
-  const angleV0 = Math.acos(cosV0);
-
-  // V3 (SW) respecto a V0 (NW)
-  const V3: Point2D = {
-    x: LO * Math.cos(angleV0 - Math.PI / 2),
-    y: LO * Math.sin(angleV0 - Math.PI / 2)
-  };
-
-  // En triángulo V1-V3-V2 (lados D, LS, LE):
-  // Coseno del ángulo en V1 (NE) respecto a la diagonal D
-  const cosV1Diag = Math.max(-1, Math.min(1, (D ** 2 + LE ** 2 - LS ** 2) / (2 * D * LE)));
-  const angleV1Diag = Math.acos(cosV1Diag);
-
-  // Vector unitario de la diagonal D de V1 a V3
-  const diagVec = { x: V3.x - V1.x, y: V3.y - V1.y };
-  const diagAngle = Math.atan2(diagVec.y, diagVec.x);
-
-  // V2 (SE) respecto a V1 (NE)
-  const angleV2 = diagAngle + angleV1Diag;
-  const V2: Point2D = {
-    x: V1.x + LE * Math.cos(angleV2),
-    y: V1.y + LE * Math.sin(angleV2)
-  };
-
-  // Normalizar coordenadas para que el punto más a la izquierda y arriba sea (0, 0)
-  const minX = Math.min(V0.x, V1.x, V2.x, V3.x);
-  const minY = Math.min(V0.y, V1.y, V2.y, V3.y);
-
-  return [
-    { x: Number((V0.x - minX).toFixed(3)), y: Number((V0.y - minY).toFixed(3)) },
-    { x: Number((V1.x - minX).toFixed(3)), y: Number((V1.y - minY).toFixed(3)) },
-    { x: Number((V2.x - minX).toFixed(3)), y: Number((V2.y - minY).toFixed(3)) },
-    { x: Number((V3.x - minX).toFixed(3)), y: Number((V3.y - minY).toFixed(3)) }
-  ];
+  return cleaned;
 }

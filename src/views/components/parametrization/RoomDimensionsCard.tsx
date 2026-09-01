@@ -19,7 +19,10 @@ import {
   Tabs,
   Tab,
   IconButton,
-  Tooltip
+  Tooltip,
+  Button,
+  MenuItem,
+  InputAdornment
 } from '@mui/material';
 import {
   Straighten as DimIcon,
@@ -27,9 +30,12 @@ import {
   ViewInAr as VolumeIcon,
   Lock as LockIcon,
   LockOpen as UnlockIcon,
-  AutoAwesome as AutoCalcIcon
+  AutoAwesome as AutoCalcIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  FormatShapes as ShapeIcon
 } from '@mui/icons-material';
-import { Room } from '@/models/RoomModel';
+import { Room, WallOrientation } from '@/models/RoomModel';
 import { useSurveyViewModel } from '@/viewmodels';
 import {
   calculateTheoreticalDiagonal,
@@ -48,13 +54,24 @@ export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) 
     updateRoomGeometry,
     updateIndependentWall,
     setDiagonalConstraint,
-    toggleCornerLock
+    toggleCornerLock,
+    toggleDimensionLock,
+    addWallBreak,
+    removeWallBreak
   } = useSurveyViewModel();
 
   const geom = room.geometry;
   const isParametricMode = geom?.mode === 'independent_walls' || geom?.mode === 'diagonal_triangulated';
 
   const [tabIndex, setTabIndex] = useState<number>(isParametricMode ? 1 : 0);
+
+  // Estado local para agregar nuevo quiebre de muro
+  const [newBreakWall, setNewBreakWall] = useState<WallOrientation>('north');
+  const [newBreakStart, setNewBreakStart] = useState<number>(0.0);
+  const [newBreakWidth, setNewBreakWidth] = useState<number>(1.5);
+  const [newBreakDepth, setNewBreakDepth] = useState<number>(0.6);
+  const [newBreakLabel, setNewBreakLabel] = useState<string>('Nicho Placard');
+  const [showAddBreakForm, setShowAddBreakForm] = useState<boolean>(false);
 
   const handleTabChange = (_: React.SyntheticEvent, newIdx: number) => {
     setTabIndex(newIdx);
@@ -115,6 +132,18 @@ export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) 
     setDiagonalConstraint(room.id, theoretical);
   };
 
+  const handleAddBreak = () => {
+    if (newBreakWidth <= 0 || newBreakDepth === 0) return;
+    addWallBreak(room.id, {
+      wall: newBreakWall as 'north' | 'south' | 'east' | 'west',
+      startOffsetMeters: newBreakStart,
+      widthMeters: newBreakWidth,
+      depthMeters: newBreakDepth,
+      label: newBreakLabel.trim() || undefined
+    });
+    setShowAddBreakForm(false);
+  };
+
   // Cálculos geométricos dinámicos con el solver
   const vertices = calculateRoomPolygon(room);
   const realArea = calculatePolygonArea(vertices);
@@ -127,9 +156,13 @@ export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) 
   const diagSO_NE = geom?.diagonalSO_NE || calculateTheoreticalDiagonal(LS, LO);
 
   const locks = geom?.cornerConstraints || {};
+  const wallBreaks = geom?.wallBreaks || [];
 
   const perimeter = (LN + LS + LE + LO).toFixed(2);
   const volume = (realArea * room.dimensions.height).toFixed(2);
+
+  const isWidthLocked = room.dimensions.widthLocked ?? true;
+  const isLengthLocked = room.dimensions.lengthLocked ?? true;
 
   return (
     <Card sx={{ mb: 2.5, border: '1px solid #e0e7ee', bgcolor: '#ffffff' }}>
@@ -138,7 +171,7 @@ export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) 
           <Stack direction="row" alignItems="center" spacing={1}>
             <DimIcon color="primary" fontSize="small" />
             <Typography variant="subtitle1" fontWeight={700}>
-              Dimensiones y Falsa Escuadra
+              Dimensiones y Geometría Constructiva
             </Typography>
           </Stack>
           <Chip
@@ -161,9 +194,9 @@ export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) 
           <Tab label="2. 4 Paredes + Diagonal (Obra Real)" />
         </Tabs>
 
-        {/* MODO 1: RECTANGULAR ESTÁNDAR */}
+        {/* MODO 1: RECTANGULAR ESTÁNDAR CON BLOQUEO / INFERENCIA */}
         {tabIndex === 0 && (
-          <Grid container spacing={2}>
+          <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={4}>
               <TextField
                 label="Ancho - Eje X (m)"
@@ -173,7 +206,18 @@ export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) 
                 onChange={(e) => handleWidthChange(e.target.value)}
                 fullWidth
                 size="small"
-                helperText="Paredes Norte y Sur"
+                helperText={isWidthLocked ? "🔒 Cota fija (Medida láser)" : "🔓 Elástica (Inferible)"}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title={isWidthLocked ? "Cota fija: no se modifica automáticamente al ensamblar" : "Cota elástica: se auto-ajusta al encastrar con ambientes vecinos"}>
+                        <IconButton size="small" onClick={() => toggleDimensionLock(room.id, 'width')} edge="end">
+                          {isWidthLocked ? <LockIcon fontSize="small" color="primary" /> : <UnlockIcon fontSize="small" color="warning" />}
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  )
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -185,7 +229,18 @@ export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) 
                 onChange={(e) => handleLengthChange(e.target.value)}
                 fullWidth
                 size="small"
-                helperText="Paredes Este y Oeste"
+                helperText={isLengthLocked ? "🔒 Cota fija (Medida láser)" : "🔓 Elástica (Inferible)"}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title={isLengthLocked ? "Cota fija: no se modifica automáticamente al ensamblar" : "Cota elástica: se auto-ajusta al encastrar con ambientes vecinos"}>
+                        <IconButton size="small" onClick={() => toggleDimensionLock(room.id, 'length')} edge="end">
+                          {isLengthLocked ? <LockIcon fontSize="small" color="primary" /> : <UnlockIcon fontSize="small" color="warning" />}
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  )
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -341,6 +396,152 @@ export const RoomDimensionsCard: React.FC<RoomDimensionsCardProps> = ({ room }) 
             </Box>
           </Box>
         )}
+
+        {/* SECCIÓN: QUIEBRES DE MURO, NICHOS Y COLUMNAS (Z-WALLS, PLACARES, MOCHETAS) */}
+        <Box sx={{ mt: 2.5, p: 1.5, bgcolor: '#f8fafc', borderRadius: 2.5, border: '1px solid #e2e8f0' }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <ShapeIcon color="primary" fontSize="small" />
+              <Typography variant="subtitle2" fontWeight={700}>
+                Quiebres de Muro, Nichos y Columnas
+              </Typography>
+              <Chip
+                label={`${wallBreaks.length} ${wallBreaks.length === 1 ? 'quiebre' : 'quiebres'}`}
+                size="small"
+                variant="outlined"
+                sx={{ fontSize: '0.7rem', height: 20 }}
+              />
+            </Stack>
+            {!showAddBreakForm && (
+              <Button
+                variant="text"
+                size="small"
+                startIcon={<AddIcon fontSize="small" />}
+                onClick={() => setShowAddBreakForm(true)}
+                sx={{ fontSize: '0.75rem', py: 0.2 }}
+              >
+                + Quiebre / Nicho
+              </Button>
+            )}
+          </Box>
+
+          <Typography variant="caption" color="text.secondary" display="block" mb={1.2}>
+            Modelá tabiques en Z (placares enfrentados), nichos de ropero (+ prof.) o columnas/mochetas (- prof.).
+          </Typography>
+
+          {/* Formulario Inline para Añadir Quiebre */}
+          {showAddBreakForm && (
+            <Box sx={{ p: 1.5, mb: 1.5, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #cbd5e1' }}>
+              <Typography variant="caption" fontWeight={700} color="primary" display="block" mb={1}>
+                Nuevo Tramo Desplazado:
+              </Typography>
+              <Grid container spacing={1.5} alignItems="center">
+                <Grid item xs={6} sm={3}>
+                  <TextField
+                    select
+                    label="Pared"
+                    value={newBreakWall}
+                    onChange={(e) => setNewBreakWall(e.target.value as WallOrientation)}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="north">🟦 Norte</MenuItem>
+                    <MenuItem value="south">🟧 Sur</MenuItem>
+                    <MenuItem value="east">🟨 Este</MenuItem>
+                    <MenuItem value="west">🟩 Oeste</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={6} sm={2.5}>
+                  <TextField
+                    label="Inicio desde esquina (m)"
+                    type="number"
+                    inputProps={{ step: 0.1, min: 0 }}
+                    value={newBreakStart}
+                    onChange={(e) => setNewBreakStart(parseFloat(e.target.value) || 0)}
+                    fullWidth
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={6} sm={2.5}>
+                  <TextField
+                    label="Ancho tramo (m)"
+                    type="number"
+                    inputProps={{ step: 0.1, min: 0.1 }}
+                    value={newBreakWidth}
+                    onChange={(e) => setNewBreakWidth(parseFloat(e.target.value) || 0.1)}
+                    fullWidth
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <TextField
+                    label="Desplazamiento (m)"
+                    type="number"
+                    inputProps={{ step: 0.05 }}
+                    value={newBreakDepth}
+                    onChange={(e) => setNewBreakDepth(parseFloat(e.target.value) || 0)}
+                    fullWidth
+                    size="small"
+                    helperText="+ exterior (nicho) / - interior (columna)"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={8}>
+                  <TextField
+                    label="Etiqueta / Razón (opcional)"
+                    placeholder="ej: Nicho Ropero 60cm, Columna 20x20, Tabique Z"
+                    value={newBreakLabel}
+                    onChange={(e) => setNewBreakLabel(e.target.value)}
+                    fullWidth
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <Button size="small" color="inherit" onClick={() => setShowAddBreakForm(false)}>
+                      Cancelar
+                    </Button>
+                    <Button variant="contained" size="small" onClick={handleAddBreak}>
+                      Guardar
+                    </Button>
+                  </Stack>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+
+          {/* Lista de Quiebres Existentes */}
+          {wallBreaks.length > 0 ? (
+            <Stack direction="row" spacing={1} flexWrap="wrap" gap={0.8}>
+              {wallBreaks.map((b) => {
+                const wallNames: Record<string, string> = {
+                  north: 'Norte',
+                  south: 'Sur',
+                  east: 'Este',
+                  west: 'Oeste'
+                };
+                const isNiche = b.depthMeters > 0;
+                return (
+                  <Chip
+                    key={b.id}
+                    label={`${wallNames[b.wall]} (${b.startOffsetMeters}m - ${b.startOffsetMeters + b.widthMeters}m): ${isNiche ? '+' : ''}${b.depthMeters}m ${b.label ? `[${b.label}]` : ''}`}
+                    onDelete={() => removeWallBreak(room.id, b.id)}
+                    deleteIcon={<DeleteIcon fontSize="small" />}
+                    size="small"
+                    color={isNiche ? 'primary' : 'secondary'}
+                    variant="outlined"
+                    sx={{ fontSize: '0.72rem', fontWeight: 600 }}
+                  />
+                );
+              })}
+            </Stack>
+          ) : (
+            !showAddBreakForm && (
+              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+                Paredes rectas continuas (sin nichos ni columnas agregadas).
+              </Typography>
+            )
+          )}
+        </Box>
 
         <Divider sx={{ my: 1.8 }} />
 

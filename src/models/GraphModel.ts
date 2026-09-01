@@ -16,6 +16,8 @@ export type LogicalConnectionType =
   | 'vano_libre'           // Vano abierto / Paso libre sin carpintería
   | 'ventana_estandar'     // Ventana (con antepecho)
   | 'puerta_ventana'       // Puerta-Ventana Balcón / Galería
+  // Vínculos Constructivos / Topológicos
+  | 'pared_comun'          // Pared Común / Tabique Ciego Compartido
   // Vínculos Técnicos
   | 'conduit_main'         // Cañería Troncal / Acometida
   | 'conduit_sec'          // Cañería Seccional
@@ -212,6 +214,17 @@ export const CONNECTION_TYPE_CATALOG: Record<string, ConnectionTypeMetadata> = {
     defaultHeight: 2.05,
     defaultSillHeight: 0.0,
     defaultSwing: 'sliding'
+  },
+  pared_comun: {
+    type: 'pared_comun',
+    label: 'Pared Común / Tabique Ciego',
+    shortCode: 'MURO-C',
+    emoji: '🧱',
+    color: '#64748b',
+    strokeDasharray: '6,4',
+    isOpening: false,
+    defaultWidth: 0,
+    defaultHeight: 0
   },
   conduit_main: {
     type: 'conduit_main',
