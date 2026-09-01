@@ -462,7 +462,6 @@ export function useSurveyViewModel() {
     (draggedRoomId: string, rawPosition: { x: number; y: number }): { x: number; y: number } => {
       if (!isSnapEnabled) {
         setSnapGuidesAction([]);
-        updateRoomCanvasPositionAction(draggedRoomId, rawPosition);
         return rawPosition;
       }
 
@@ -474,16 +473,18 @@ export function useSurveyViewModel() {
       );
 
       setSnapGuidesAction(snapResult.guidelines);
-      updateRoomCanvasPositionAction(draggedRoomId, { x: snapResult.x, y: snapResult.y });
-
       return { x: snapResult.x, y: snapResult.y };
     },
-    [isSnapEnabled, rooms, snapThreshold, setSnapGuidesAction, updateRoomCanvasPositionAction]
+    [isSnapEnabled, rooms, snapThreshold, setSnapGuidesAction]
   );
 
-  const handleRoomDragEnd = useCallback(() => {
-    setSnapGuidesAction([]);
-  }, [setSnapGuidesAction]);
+  const handleRoomDragEnd = useCallback(
+    (draggedRoomId: string, finalPosition: { x: number; y: number }) => {
+      setSnapGuidesAction([]);
+      updateRoomCanvasPositionAction(draggedRoomId, finalPosition);
+    },
+    [setSnapGuidesAction, updateRoomCanvasPositionAction]
+  );
 
   return {
     // Estado
