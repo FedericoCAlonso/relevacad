@@ -142,6 +142,102 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
     [handleRoomDragEnd]
   );
 
+  // Refs para zoom y pan táctil con 2 dedos en smartphone
+  const lastCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const lastDistRef = useRef<number>(0);
+
+  const getTouchDistance = (p1: { clientX: number; clientY: number }, p2: { clientX: number; clientY: number }) => {
+    return Math.sqrt(Math.pow(p2.clientX - p1.clientX, 2) + Math.pow(p2.clientY - p1.clientY, 2));
+  };
+
+  const getTouchCenter = (p1: { clientX: number; clientY: number }, p2: { clientX: number; clientY: number }) => {
+    return {
+      x: (p1.clientX + p2.clientX) / 2,
+      y: (p1.clientY + p2.clientY) / 2
+    };
+  };
+
+  const handleTouchMove = useCallback((e: any) => {
+    const touch1 = e.evt.touches[0];
+    const touch2 = e.evt.touches[1];
+
+    if (touch1 && touch2) {
+      const stage = e.target.getStage();
+      if (!stage) return;
+
+      if (stage.isDragging()) {
+        stage.stopDrag();
+      }
+
+      const p1 = { clientX: touch1.clientX, clientY: touch1.clientY };
+      const p2 = { clientX: touch2.clientX, clientY: touch2.clientY };
+
+      if (!lastCenterRef.current) {
+        lastCenterRef.current = getTouchCenter(p1, p2);
+        return;
+      }
+      const newCenter = getTouchCenter(p1, p2);
+
+      const dist = getTouchDistance(p1, p2);
+      if (!lastDistRef.current) {
+        lastDistRef.current = dist;
+      }
+
+      const pointTo = {
+        x: (newCenter.x - stage.x()) / stage.scaleX(),
+        y: (newCenter.y - stage.y()) / stage.scaleX()
+      };
+
+      const scaleBy = dist / lastDistRef.current;
+      const newScale = Math.max(0.3, Math.min(stage.scaleX() * scaleBy, 3));
+
+      const dx = newCenter.x - lastCenterRef.current.x;
+      const dy = newCenter.y - lastCenterRef.current.y;
+
+      const newPos = {
+        x: newCenter.x - pointTo.x * newScale + dx,
+        y: newCenter.y - pointTo.y * newScale + dy
+      };
+
+      setScale(newScale);
+      setStagePos(newPos);
+
+      lastDistRef.current = dist;
+      lastCenterRef.current = newCenter;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    lastDistRef.current = 0;
+    lastCenterRef.current = null;
+  }, []);
+
+  const handleWheel = useCallback((e: any) => {
+    e.evt.preventDefault();
+    const stage = e.target.getStage();
+    if (!stage) return;
+    const oldScale = stage.scaleX();
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+
+    const mousePointTo = {
+      x: (pointer.x - stage.x()) / oldScale,
+      y: (pointer.y - stage.y()) / oldScale
+    };
+
+    const direction = e.evt.deltaY > 0 ? -1 : 1;
+    const factor = 1.08;
+    const newScale = Math.max(0.3, Math.min(direction > 0 ? oldScale * factor : oldScale / factor, 3));
+
+    const newPos = {
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale
+    };
+
+    setScale(newScale);
+    setStagePos(newPos);
+  }, []);
+
   return (
     <Box
       ref={containerRef}
@@ -150,7 +246,8 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         height: '100%',
         position: 'relative',
         bgcolor: '#f1f5f9',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        touchAction: 'none'
       }}
     >
       {/* 🧭 Barra de Controles Compacta y Elegante (Material 3 Glassmorphic Pill) */}
@@ -164,8 +261,8 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
           zIndex: 20,
           borderRadius: 8,
           py: 0.5,
-          px: isMobile ? 1 : 1.5,
-          maxWidth: isMobile ? 'calc(100vw - 16px)' : undefined,
+          px: isMobile ? 0.8 : 1.5,
+          maxWidth: isMobile ? 'calc(100vw - 12px)' : undefined,
           overflowX: isMobile ? 'auto' : 'visible',
           bgcolor: 'rgba(255, 255, 255, 0.94)',
           backdropFilter: 'blur(16px)',
@@ -173,24 +270,26 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)'
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" alignItems="center" spacing={isMobile ? 0.6 : 1}>
           {/* Botón Prominente para Agregar Ambiente */}
           {onOpenAddRoom && (
             <Button
               variant="contained"
               size="small"
-              startIcon={<AddIcon />}
+              startIcon={<AddIcon fontSize="small" />}
               onClick={() => onOpenAddRoom('interior')}
               sx={{
                 borderRadius: 6,
                 textTransform: 'none',
                 fontWeight: 700,
-                fontSize: '0.78rem',
+                fontSize: isMobile ? '0.74rem' : '0.78rem',
                 height: 28,
-                px: 1.5,
+                px: isMobile ? 1 : 1.5,
                 bgcolor: '#0284c7',
                 '&:hover': { bgcolor: '#0369a1' },
-                boxShadow: 'none'
+                boxShadow: 'none',
+                whiteSpace: 'nowrap',
+                minWidth: 'fit-content'
               }}
             >
               + Ambiente
@@ -201,12 +300,12 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
           <Tooltip title="Cambiar espesor constructivo de muros">
             <Chip
               icon={<WallIcon fontSize="small" />}
-              label={`Muro: ${Math.round(wallThicknessMeters * 100)} cm`}
+              label={isMobile ? `${Math.round(wallThicknessMeters * 100)} cm` : `Muro: ${Math.round(wallThicknessMeters * 100)} cm`}
               size="small"
               onClick={(e) => setWallMenuAnchor(e.currentTarget)}
               variant="outlined"
               clickable
-              sx={{ fontWeight: 700, fontSize: '0.75rem', height: 28 }}
+              sx={{ fontWeight: 700, fontSize: '0.74rem', height: 28 }}
             />
           </Tooltip>
 
@@ -259,37 +358,37 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
             </MenuItem>
           </Menu>
 
-          {/* ⚡ Botón de Auto-Ensamble Inteligente */}
-          <Tooltip title="Auto-ensamblar y alinear planta arquitectónica según el grafo topológico">
+          {/* ⚡ Botón de Auto-Alinear Inteligente */}
+          <Tooltip title="Auto-ensamblar y alinear planta arquitectónica">
             <Chip
               icon={<AutoLayoutIcon fontSize="small" />}
-              label="Auto-Ensamblar"
+              label={isMobile ? 'Alinear' : 'Auto-Ensamblar'}
               color="primary"
               size="small"
               onClick={() => autoAssembleRooms()}
               clickable
               variant="filled"
-              sx={{ fontWeight: 700, fontSize: '0.75rem', height: 28 }}
+              sx={{ fontWeight: 700, fontSize: '0.74rem', height: 28 }}
             />
           </Tooltip>
 
           {/* 🤖 Botón Asistente de Relevamiento Incremental */}
           <Tooltip title={isAssistantOpen ? 'Ocultar Asistente de Relevamiento' : 'Abrir Asistente de Relevamiento'}>
             <Chip
-              label={`Asistente ${questionsQueue.length > 0 ? `(${questionsQueue.length})` : '✓'}`}
+              label={isMobile ? (questionsQueue.length > 0 ? `Asist. (${questionsQueue.length})` : 'Asist. ✓') : `Asistente ${questionsQueue.length > 0 ? `(${questionsQueue.length})` : '✓'}`}
               color={questionsQueue.length > 0 ? 'warning' : 'success'}
               size="small"
               onClick={() => toggleAssistantOpen()}
               clickable
               variant={isAssistantOpen ? 'filled' : 'outlined'}
-              sx={{ fontWeight: 700, fontSize: '0.75rem', height: 28 }}
+              sx={{ fontWeight: 700, fontSize: '0.74rem', height: 28 }}
             />
           </Tooltip>
 
           <Box sx={{ height: 18, width: 1, bgcolor: '#cbd5e1' }} />
 
           {/* Botón Compacto de Snap Magnético */}
-          <Tooltip title={isSnapEnabled ? 'Atracción magnética activa' : 'Atracción magnética desactivada'}>
+          <Tooltip title={isSnapEnabled ? 'Atracción magnética y proyección activa' : 'Atracción magnética desactivada'}>
             <Chip
               icon={<SnapIcon fontSize="small" />}
               label="Snap"
@@ -298,35 +397,38 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
               onClick={() => toggleSnap()}
               clickable
               variant={isSnapEnabled ? 'filled' : 'outlined'}
-              sx={{ fontWeight: 600, fontSize: '0.75rem', height: 28 }}
+              sx={{ fontWeight: 600, fontSize: '0.74rem', height: 28 }}
             />
           </Tooltip>
 
-          {/* Botón Compacto de Plano CAD vs Grafo */}
-          <Tooltip title={showAbstractEdges ? 'Ver Plano Arquitectónico Real con Aberturas' : 'Ver Líneas de Grafo Topológico'}>
-            <IconButton
-              size="small"
-              color={showAbstractEdges ? 'secondary' : 'primary'}
-              onClick={() => setShowAbstractEdges(!showAbstractEdges)}
-              sx={{ p: 0.5 }}
-            >
-              {showAbstractEdges ? <TopologyLinesIcon fontSize="small" /> : <ArchPlanIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
+          {/* Controles de Zoom y Vista en Desktop */}
+          {!isMobile && (
+            <>
+              {/* Botón Compacto de Plano CAD vs Grafo */}
+              <Tooltip title={showAbstractEdges ? 'Ver Plano Arquitectónico Real con Aberturas' : 'Ver Líneas de Grafo Topológico'}>
+                <IconButton
+                  size="small"
+                  color={showAbstractEdges ? 'secondary' : 'primary'}
+                  onClick={() => setShowAbstractEdges(!showAbstractEdges)}
+                  sx={{ p: 0.5 }}
+                >
+                  {showAbstractEdges ? <TopologyLinesIcon fontSize="small" /> : <ArchPlanIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
 
-          <Box sx={{ height: 18, width: 1, bgcolor: '#cbd5e1' }} />
-
-          {/* Controles de Zoom Compactos */}
-          <IconButton size="small" onClick={() => handleZoom(1.15)} sx={{ p: 0.5 }}>
-            <ZoomInIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" onClick={() => handleZoom(0.85)} sx={{ p: 0.5 }}>
-            <ZoomOutIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" onClick={handleResetView} sx={{ p: 0.5 }}>
-            <ResetViewIcon fontSize="small" />
-          </IconButton>
-          <Chip label={`${Math.round(scale * 100)}%`} size="small" variant="outlined" sx={{ fontSize: '0.68rem', height: 22 }} />
+              <Box sx={{ height: 18, width: 1, bgcolor: '#cbd5e1' }} />
+              <IconButton size="small" onClick={() => handleZoom(1.15)} sx={{ p: 0.5 }}>
+                <ZoomInIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" onClick={() => handleZoom(0.85)} sx={{ p: 0.5 }}>
+                <ZoomOutIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" onClick={handleResetView} sx={{ p: 0.5 }}>
+                <ResetViewIcon fontSize="small" />
+              </IconButton>
+              <Chip label={`${Math.round(scale * 100)}%`} size="small" variant="outlined" sx={{ fontSize: '0.68rem', height: 22 }} />
+            </>
+          )}
         </Stack>
       </Paper>
 
@@ -367,6 +469,9 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
             setStagePos({ x: e.target.x(), y: e.target.y() });
           }
         }}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
       >
         {/* Capa 1: Vínculos de Topología (Solo si se activa el modo grafo) */}
         {showAbstractEdges && (
@@ -406,7 +511,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
           </Layer>
         )}
 
-        {/* Capa 2: Guías visuales de Snapping Magnético (No interactiva) */}
+        {/* Capa 2: Guías visuales de Snapping Magnético y Proyecciones de Caras */}
         {activeSnapGuides.length > 0 && (
           <Layer listening={false}>
             {activeSnapGuides.map((guide) => {
@@ -416,18 +521,34 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                   : [guide.start, guide.position, guide.end, guide.position];
 
               const isTopo = guide.isTopologicalAdjacency;
+              const isProj = guide.snapType === 'projection_face';
+              const isCenter = guide.snapType === 'center';
+              const strokeColor = isTopo ? '#10b981' : isProj ? '#0284c7' : isCenter ? '#d97706' : '#00e5ff';
 
               return (
-                <Line
-                  key={guide.id}
-                  points={points}
-                  stroke={isTopo ? '#10b981' : '#00e5ff'}
-                  strokeWidth={isTopo ? 3 : 2}
-                  dash={isTopo ? [8, 3] : [6, 4]}
-                  shadowColor={isTopo ? '#10b981' : '#00e5ff'}
-                  shadowBlur={6}
-                  perfectDrawEnabled={false}
-                />
+                <Group key={guide.id}>
+                  <Line
+                    points={points}
+                    stroke={strokeColor}
+                    strokeWidth={isTopo ? 3 : 2}
+                    dash={isTopo ? [8, 3] : isProj ? [10, 4] : [6, 4]}
+                    shadowColor={strokeColor}
+                    shadowBlur={6}
+                    perfectDrawEnabled={false}
+                  />
+                  {guide.label && (
+                    <Text
+                      text={guide.label}
+                      x={guide.orientation === 'vertical' ? guide.position + 6 : guide.start + 12}
+                      y={guide.orientation === 'vertical' ? guide.start + 12 : guide.position + 6}
+                      fontSize={9}
+                      fontStyle="bold"
+                      fontFamily="Outfit, sans-serif"
+                      fill={strokeColor}
+                      perfectDrawEnabled={false}
+                    />
+                  )}
+                </Group>
               );
             })}
           </Layer>
@@ -569,32 +690,65 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         </Layer>
       </Stage>
 
-      {/* 📐 Botón Flotante de Parametrización Rápida del Ambiente Seleccionado */}
+      {/* 📱 Botonera Táctil Flotante para Navegación con los Dedos en Celular */}
+      {isMobile && (
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'absolute',
+            bottom: 74,
+            left: 14,
+            zIndex: 20,
+            borderRadius: 4,
+            p: 0.4,
+            bgcolor: 'rgba(255, 255, 255, 0.94)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(226, 232, 240, 0.9)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.3,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.12)'
+          }}
+        >
+          <IconButton size="small" onClick={() => handleZoom(1.2)} sx={{ p: 0.8 }} title="Acercar">
+            <ZoomInIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={() => handleZoom(0.8)} sx={{ p: 0.8 }} title="Alejar">
+            <ZoomOutIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={handleResetView} sx={{ p: 0.8 }} title="Centrar Plano">
+            <ResetViewIcon fontSize="small" />
+          </IconButton>
+        </Paper>
+      )}
+
+      {/* 📐 Botón Flotante de Medidas del Ambiente Seleccionado */}
       {selectedRoom && isMetricRoom(selectedRoom) && (
         <Paper
           elevation={4}
           sx={{
             position: 'absolute',
-            bottom: isMobile ? 80 : 20,
-            right: 20,
+            bottom: isMobile ? 74 : 20,
+            right: 14,
             zIndex: 20,
-            py: 1,
-            px: 1.8,
+            py: 0.8,
+            px: 1.5,
             borderRadius: 3,
             bgcolor: '#ffffff',
             border: '1.5px solid #00629e',
             display: 'flex',
             alignItems: 'center',
-            gap: 1.5,
-            boxShadow: '0 8px 24px rgba(0,98,158,0.18)'
+            gap: 1.2,
+            boxShadow: '0 8px 24px rgba(0,98,158,0.18)',
+            maxWidth: isMobile ? 'calc(100vw - 110px)' : undefined
           }}
         >
-          <Box>
-            <Typography variant="body2" fontWeight={700} color="#0f172a">
+          <Box sx={{ overflow: 'hidden' }}>
+            <Typography variant="body2" fontWeight={700} color="#0f172a" noWrap>
               {selectedRoom.name}
             </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
-              {selectedRoom.dimensions.width}m × {selectedRoom.dimensions.length}m • {selectedRoom.electricalAssets.length} bocas
+            <Typography variant="caption" color="text.secondary" display="block" noWrap>
+              {selectedRoom.dimensions.width}m × {selectedRoom.dimensions.length}m
             </Typography>
           </Box>
           <Button
@@ -602,7 +756,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
             size="small"
             startIcon={<TuneIcon />}
             onClick={() => setDetailRoomId(selectedRoom.id)}
-            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 1.5 }}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 1.2, whiteSpace: 'nowrap' }}
           >
             Medidas
           </Button>

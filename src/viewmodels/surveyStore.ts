@@ -1889,6 +1889,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
     const movedRoom = rooms.find((r) => r.id === movedRoomId);
     if (!movedRoom) return;
 
+    // Las islas técnicas (jabalina PAT, etc.) no están ancladas a nada
+    if (movedRoom.isTechnicalIsland || movedRoom.type.startsWith('technical_island')) {
+      return;
+    }
+
     const isNonMetric = !isMetricRoom(movedRoom);
     const mW = isNonMetric ? 180 : metersToPixels(movedRoom.dimensions?.width || 3);
     const mH = isNonMetric ? 100 : metersToPixels(movedRoom.dimensions?.length || 2.5);
@@ -1905,6 +1910,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
 
     for (const other of rooms) {
       if (other.id === movedRoomId) continue;
+      if (other.isTechnicalIsland || other.type.startsWith('technical_island')) continue;
+
+      // Dos regiones no métricas entre sí (ej. palier y patio) se mezclan sin crear muros constructivos
+      if (!isMetricRoom(movedRoom) && !isMetricRoom(other)) continue;
+
       const otherIsNonMetric = !isMetricRoom(other);
       const oW = otherIsNonMetric ? 180 : metersToPixels(other.dimensions?.width || 3);
       const oH = otherIsNonMetric ? 100 : metersToPixels(other.dimensions?.length || 2.5);

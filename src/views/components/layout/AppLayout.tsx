@@ -176,17 +176,22 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                   fontWeight: 600,
                   height: 28,
                   fontSize: '0.75rem',
-                  maxWidth: isMobile ? 140 : 260
+                  maxWidth: isMobile ? 120 : 260,
+                  '& .MuiChip-label': {
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }
                 }}
               />
             </Tooltip>
 
-            {/* Toggle de Snapping Magnético */}
-            {activePhase === 'architecture' && (
+            {/* Toggle de Snapping Magnético (Desktop) */}
+            {!isMobile && activePhase === 'architecture' && (
               <Tooltip title={isSnapEnabled ? 'Atracción Magnética (~15px) Activa' : 'Atracción Magnética Desactivada'}>
                 <Chip
                   icon={<SnapIcon fontSize="small" />}
-                  label={isMobile ? (isSnapEnabled ? 'Snap' : 'Off') : isSnapEnabled ? 'Snap: ON' : 'Snap: OFF'}
+                  label={isSnapEnabled ? 'Snap: ON' : 'Snap: OFF'}
                   color={isSnapEnabled ? 'primary' : 'default'}
                   onClick={() => toggleSnap()}
                   clickable

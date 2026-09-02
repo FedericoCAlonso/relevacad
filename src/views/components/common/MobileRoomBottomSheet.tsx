@@ -40,46 +40,72 @@ interface MobileRoomBottomSheetProps {
   onClose: () => void;
 }
 
+const ROOM_TYPE_EMOJIS: Record<string, string> = {
+  living: '🛋️',
+  kitchen: '🍳',
+  bedroom: '🛏️',
+  bathroom: '🚿',
+  hallway: '🚪',
+  technical_room: '⚡',
+  laundry: '🧺',
+  garage: '🚗',
+  balcony: '🪴',
+  garden: '🌳',
+  generic_interior: '🏠',
+  access_main: '🚪',
+  access_palier: '🏢',
+  access_garage: '🚗',
+  access_service: '🔑',
+  access_secondary: '🚪',
+  technical_island_ground: '⚡',
+  limit_front: '🛣️',
+  limit_back: '🌿',
+  limit_medianera_left: '🧱',
+  limit_medianera_right: '🧱',
+  limit_patio: '☀️'
+};
+
 export const MobileRoomBottomSheet: React.FC<MobileRoomBottomSheetProps> = ({
   open,
   onClose
 }) => {
   const {
     selectedRoom,
+    deleteRoom,
     updateRoomDimensions,
     updateRoomCubierta,
-    deleteRoom,
     setActivePhase
   } = useSurveyViewModel();
 
   if (!selectedRoom) return null;
 
-  const isBoundary = isParcelBoundaryNode(selectedRoom);
   const isMetric = isMetricRoom(selectedRoom);
+  const isBoundary = isParcelBoundaryNode(selectedRoom);
   const preset = ROOM_TYPE_CATALOG[selectedRoom.type] || ROOM_TYPE_CATALOG.other;
 
   const handleStepDimension = (dim: 'width' | 'length', delta: number) => {
-    const currentVal = selectedRoom.dimensions[dim];
-    const newVal = Math.max(0.5, Number((currentVal + delta).toFixed(2)));
-    updateRoomDimensions(selectedRoom.id, { [dim]: newVal });
+    const current = selectedRoom.dimensions[dim];
+    const updated = Math.max(0.5, Number((current + delta).toFixed(2)));
+    updateRoomDimensions(selectedRoom.id, { [dim]: updated });
   };
 
-  const handleCubiertaChange = (_: React.MouseEvent<HTMLElement>, newCub: TipoCubierta | null) => {
-    if (newCub) {
-      updateRoomCubierta(selectedRoom.id, newCub);
+  const handleCubiertaChange = (
+    _: React.MouseEvent<HTMLElement>,
+    newCubierta: TipoCubierta | null
+  ) => {
+    if (newCubierta) {
+      updateRoomCubierta(selectedRoom.id, newCubierta);
     }
-  };
-
-  const handleOpenParam = () => {
-    onClose();
-    setActivePhase('parametrization');
   };
 
   const handleDelete = () => {
-    if (window.confirm(`¿Eliminar ${selectedRoom.name}?`)) {
-      deleteRoom(selectedRoom.id);
-      onClose();
-    }
+    deleteRoom(selectedRoom.id);
+    onClose();
+  };
+
+  const handleOpenParam = () => {
+    setActivePhase('architecture');
+    onClose();
   };
 
   return (
@@ -116,7 +142,7 @@ export const MobileRoomBottomSheet: React.FC<MobileRoomBottomSheetProps> = ({
               fontSize: '1.2rem'
             }}
           >
-            {isBoundary ? <BoundaryIcon fontSize="small" sx={{ color: '#475569' }} /> : preset.iconName || '🏠'}
+            {isBoundary ? <BoundaryIcon fontSize="small" sx={{ color: '#475569' }} /> : ROOM_TYPE_EMOJIS[selectedRoom.type] || '🏠'}
           </Box>
           <Box>
             <Typography variant="subtitle1" fontWeight={700} lineHeight={1.2}>
@@ -269,7 +295,7 @@ export const MobileRoomBottomSheet: React.FC<MobileRoomBottomSheetProps> = ({
             boxShadow: '0 4px 14px rgba(0,98,158,0.25)'
           }}
         >
-          Parametrizar Muros y Bocas
+          Configurar Medidas y Muros
         </Button>
       )}
     </Drawer>

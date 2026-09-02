@@ -9,7 +9,7 @@
  */
 
 import React, { memo, useRef, useEffect } from 'react';
-import { Group, Rect, Text, Line } from 'react-konva';
+import { Group, Rect, Text, Line, Circle } from 'react-konva';
 import Konva from 'konva';
 import { Room, TIPO_CUBIERTA_CATALOG, WallOrientation, isMetricRoom } from '@/models/RoomModel';
 import { LogicalConnection } from '@/models/GraphModel';
@@ -76,25 +76,115 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     allRooms
   ]);
 
-  // 🧱 ZONAS NO RELEVADAS / LÍMITES Y ACCESOS (Áreas Sombreadas / Referencias Perimetrales)
+  // 🧱 ZONAS NO RELEVADAS / LÍMITES Y ACCESOS (Áreas Difuminadas sin Bordes e Islas Flotantes)
   if (isNonMetric) {
-    const isPalier = room.isAccessPoint || room.type === 'access_palier';
-    const isPatio = room.type === 'limit_patio';
-    const isBoundary = room.isParcelBoundary || room.type.startsWith('limit_');
     const isTechnical = room.isTechnicalIsland || room.type.startsWith('technical_island');
 
-    const wPx = metersToPixels(room.dimensions?.width > 0 ? room.dimensions.width : (isBoundary ? 1.0 : 2.5));
-    const hPx = metersToPixels(room.dimensions?.length > 0 ? room.dimensions.length : (isBoundary ? 4.0 : 2.5));
+    // ⚡ CASO 1: AMBIENTE ISLA TÉCNICA (Cuadrado con bordes definidos, libre / no anclado a nada)
+    if (isTechnical) {
+      const sidePx = 54;
+      return (
+        <Group
+          id={room.id}
+          x={room.canvasPosition.x}
+          y={room.canvasPosition.y}
+          draggable
+          onClick={(e) => {
+            e.cancelBubble = true;
+            onSelect(room.id);
+          }}
+          onTap={(e) => {
+            e.cancelBubble = true;
+            onSelect(room.id);
+          }}
+          onDragMove={(e) => {
+            e.cancelBubble = true;
+            onDragMove(room.id, e.target);
+          }}
+          onDragEnd={(e) => {
+            e.cancelBubble = true;
+            onDragEnd(room.id, e.target);
+          }}
+        >
+          <Rect
+            x={0}
+            y={0}
+            width={sidePx}
+            height={sidePx}
+            fill="#fffbeb"
+            stroke={isSelected ? '#0284c7' : '#d97706'}
+            strokeWidth={isSelected ? 2.5 : 2}
+            cornerRadius={4}
+            shadowColor="rgba(217, 119, 6, 0.2)"
+            shadowBlur={6}
+          />
+          <Text
+            text="⚡"
+            x={0}
+            y={8}
+            fontSize={16}
+            width={sidePx}
+            align="center"
+            listening={false}
+          />
+          <Text
+            text={room.name.toUpperCase()}
+            x={2}
+            y={28}
+            fontSize={8}
+            fontStyle="bold"
+            fontFamily="Outfit, Roboto, sans-serif"
+            fill="#92400e"
+            width={sidePx - 4}
+            align="center"
+            listening={false}
+          />
+          <Text
+            text="Isla Libre"
+            x={2}
+            y={40}
+            fontSize={7}
+            fontFamily="Outfit, Roboto, sans-serif"
+            fill="#b45309"
+            width={sidePx - 4}
+            align="center"
+            listening={false}
+          />
+        </Group>
+      );
+    }
 
-    const bgColor = isPalier ? '#ecfdf5' : isPatio ? '#f0fdf4' : isTechnical ? '#fffbeb' : '#f8fafc';
-    const strokeColor = isPalier ? '#059669' : isPatio ? '#0ea5e9' : isTechnical ? '#d97706' : '#64748b';
-    const label = isPalier
-      ? `🏢 ${room.name.toUpperCase()}`
+    // 🌫️ CASO 2: REGIONES DIFUMINADAS SIN BORDES (Palier, Patios, Límites de Referencia)
+    // No tienen bordes, son gradientes radiales difuminados que se mezclan sin invadir la propiedad.
+    const isPalier = room.isAccessPoint || room.type === 'access_palier';
+    const isPatio = room.type === 'limit_patio';
+
+    const wPx = metersToPixels(room.dimensions?.width > 0 ? room.dimensions.width : 2.5);
+    const hPx = metersToPixels(room.dimensions?.length > 0 ? room.dimensions.length : 2.5);
+    const radius = Math.max(wPx, hPx) * 0.58;
+    const centerX = wPx / 2;
+    const centerY = hPx / 2;
+
+    const colorCenter = isPalier
+      ? 'rgba(16, 185, 129, 0.28)'
       : isPatio
-      ? `☀️ ${room.name.toUpperCase()}`
-      : isTechnical
-      ? `⚡ ${room.name.toUpperCase()}`
-      : `🧱 ${room.name.toUpperCase()}`;
+      ? 'rgba(14, 165, 233, 0.28)'
+      : 'rgba(148, 163, 184, 0.22)';
+
+    const colorMid = isPalier
+      ? 'rgba(16, 185, 129, 0.10)'
+      : isPatio
+      ? 'rgba(14, 165, 233, 0.08)'
+      : 'rgba(148, 163, 184, 0.06)';
+
+    const colorEdge = 'rgba(255, 255, 255, 0)';
+
+    const textFill = isPalier ? '#047857' : isPatio ? '#0369a1' : '#475569';
+    const label = isPalier
+      ? `🏢 ${room.name}`
+      : isPatio
+      ? `☀️ ${room.name}`
+      : `🧱 ${room.name}`;
 
     return (
       <Group
@@ -119,38 +209,55 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
           onDragEnd(room.id, e.target);
         }}
       >
-        <Rect
-          x={0}
-          y={0}
-          width={wPx}
-          height={hPx}
-          fill={bgColor}
-          opacity={0.8}
-          stroke={isSelected ? '#0284c7' : strokeColor}
-          strokeWidth={isSelected ? 2.5 : 1.5}
-          dash={isBoundary ? [14, 4, 3, 4] : [8, 4]}
-          cornerRadius={4}
+        {/* Halo difuminado sin bordes */}
+        <Circle
+          x={centerX}
+          y={centerY}
+          radius={radius}
+          fillRadialGradientStartPoint={{ x: 0, y: 0 }}
+          fillRadialGradientStartRadius={0}
+          fillRadialGradientEndPoint={{ x: 0, y: 0 }}
+          fillRadialGradientEndRadius={radius}
+          fillRadialGradientColorStops={[0, colorCenter, 0.55, colorMid, 1, colorEdge]}
+          strokeEnabled={false}
+          perfectDrawEnabled={false}
         />
+
+        {/* Si está seleccionado, indicador sutil de selección */}
+        {isSelected && (
+          <Circle
+            x={centerX}
+            y={centerY}
+            radius={radius * 0.55}
+            stroke="#0284c7"
+            strokeWidth={1.5}
+            dash={[4, 4]}
+            opacity={0.6}
+            perfectDrawEnabled={false}
+          />
+        )}
+
+        {/* Rótulo tipográfico integrado en el difuminado */}
         <Text
           text={label}
-          x={6}
-          y={hPx / 2 - 14}
-          fontSize={10}
+          x={0}
+          y={centerY - 9}
+          fontSize={11}
           fontStyle="bold"
           fontFamily="Outfit, Roboto, sans-serif"
-          fill={strokeColor}
-          width={Math.max(10, wPx - 12)}
+          fill={textFill}
+          width={wPx}
           align="center"
           listening={false}
         />
         <Text
-          text="Zona No Relevada (Referencia)"
-          x={6}
-          y={hPx / 2 + 2}
+          text="Zona de Referencia"
+          x={0}
+          y={centerY + 6}
           fontSize={8}
           fontFamily="Outfit, Roboto, sans-serif"
           fill="#94a3b8"
-          width={Math.max(10, wPx - 12)}
+          width={wPx}
           align="center"
           listening={false}
         />

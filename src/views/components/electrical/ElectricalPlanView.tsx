@@ -101,6 +101,102 @@ export const ElectricalPlanView: React.FC = () => {
     setStagePos({ x: 80, y: 60 });
   }, []);
 
+  // Refs para zoom y pan táctil con 2 dedos en smartphone
+  const lastCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const lastDistRef = useRef<number>(0);
+
+  const getTouchDistance = (p1: { clientX: number; clientY: number }, p2: { clientX: number; clientY: number }) => {
+    return Math.sqrt(Math.pow(p2.clientX - p1.clientX, 2) + Math.pow(p2.clientY - p1.clientY, 2));
+  };
+
+  const getTouchCenter = (p1: { clientX: number; clientY: number }, p2: { clientX: number; clientY: number }) => {
+    return {
+      x: (p1.clientX + p2.clientX) / 2,
+      y: (p1.clientY + p2.clientY) / 2
+    };
+  };
+
+  const handleTouchMove = useCallback((e: any) => {
+    const touch1 = e.evt.touches[0];
+    const touch2 = e.evt.touches[1];
+
+    if (touch1 && touch2) {
+      const stage = e.target.getStage();
+      if (!stage) return;
+
+      if (stage.isDragging()) {
+        stage.stopDrag();
+      }
+
+      const p1 = { clientX: touch1.clientX, clientY: touch1.clientY };
+      const p2 = { clientX: touch2.clientX, clientY: touch2.clientY };
+
+      if (!lastCenterRef.current) {
+        lastCenterRef.current = getTouchCenter(p1, p2);
+        return;
+      }
+      const newCenter = getTouchCenter(p1, p2);
+
+      const dist = getTouchDistance(p1, p2);
+      if (!lastDistRef.current) {
+        lastDistRef.current = dist;
+      }
+
+      const pointTo = {
+        x: (newCenter.x - stage.x()) / stage.scaleX(),
+        y: (newCenter.y - stage.y()) / stage.scaleX()
+      };
+
+      const scaleBy = dist / lastDistRef.current;
+      const newScale = Math.max(0.3, Math.min(stage.scaleX() * scaleBy, 3));
+
+      const dx = newCenter.x - lastCenterRef.current.x;
+      const dy = newCenter.y - lastCenterRef.current.y;
+
+      const newPos = {
+        x: newCenter.x - pointTo.x * newScale + dx,
+        y: newCenter.y - pointTo.y * newScale + dy
+      };
+
+      setScale(newScale);
+      setStagePos(newPos);
+
+      lastDistRef.current = dist;
+      lastCenterRef.current = newCenter;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    lastDistRef.current = 0;
+    lastCenterRef.current = null;
+  }, []);
+
+  const handleWheel = useCallback((e: any) => {
+    e.evt.preventDefault();
+    const stage = e.target.getStage();
+    if (!stage) return;
+    const oldScale = stage.scaleX();
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+
+    const mousePointTo = {
+      x: (pointer.x - stage.x()) / oldScale,
+      y: (pointer.y - stage.y()) / oldScale
+    };
+
+    const direction = e.evt.deltaY > 0 ? -1 : 1;
+    const factor = 1.08;
+    const newScale = Math.max(0.3, Math.min(direction > 0 ? oldScale * factor : oldScale / factor, 3));
+
+    const newPos = {
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale
+    };
+
+    setScale(newScale);
+    setStagePos(newPos);
+  }, []);
+
   // Calcular posición absoluta en el canvas de cada nodo eléctrico
   const getNodeCanvasCoordinates = useCallback(
     (node: NodoElectrico): { x: number; y: number } => {
@@ -166,7 +262,8 @@ export const ElectricalPlanView: React.FC = () => {
         height: '100%',
         position: 'relative',
         overflow: 'hidden',
-        bgcolor: '#f8fafc'
+        bgcolor: '#f8fafc',
+        touchAction: 'none'
       }}
     >
       {/* 🧭 Barra Superior de Herramientas Eléctricas */}
@@ -180,14 +277,14 @@ export const ElectricalPlanView: React.FC = () => {
           zIndex: 20,
           borderRadius: 8,
           py: 0.5,
-          px: isMobile ? 1 : 1.5,
+          px: isMobile ? 0.8 : 1.5,
           bgcolor: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(16px)',
           border: '1px solid rgba(226, 232, 240, 0.9)',
           display: 'flex',
           alignItems: 'center',
-          gap: 1.2,
-          maxWidth: isMobile ? 'calc(100vw - 16px)' : undefined,
+          gap: isMobile ? 0.8 : 1.2,
+          maxWidth: isMobile ? 'calc(100vw - 12px)' : undefined,
           overflowX: 'auto'
         }}
       >
@@ -195,21 +292,23 @@ export const ElectricalPlanView: React.FC = () => {
         <Button
           variant="contained"
           size="small"
-          startIcon={<AddIcon />}
+          startIcon={<AddIcon fontSize="small" />}
           onClick={() => setAddNodeOpen(true)}
           sx={{
             borderRadius: 6,
             textTransform: 'none',
             fontWeight: 700,
-            fontSize: '0.78rem',
+            fontSize: isMobile ? '0.74rem' : '0.78rem',
             height: 28,
-            px: 1.5,
+            px: isMobile ? 1 : 1.5,
             bgcolor: '#d97706',
             '&:hover': { bgcolor: '#b45309' },
-            boxShadow: 'none'
+            boxShadow: 'none',
+            whiteSpace: 'nowrap',
+            minWidth: 'fit-content'
           }}
         >
-          + Boca Eléctrica
+          {isMobile ? '+ Boca' : '+ Boca Eléctrica'}
         </Button>
 
         {/* Botón Trazar Cañería */}
@@ -218,7 +317,7 @@ export const ElectricalPlanView: React.FC = () => {
             variant={isRoutingMode ? 'contained' : 'outlined'}
             size="small"
             color="primary"
-            startIcon={<ConduitIcon />}
+            startIcon={<ConduitIcon fontSize="small" />}
             onClick={() => {
               setIsRoutingMode(!isRoutingMode);
               setRoutingSourceNodeId(null);
@@ -227,12 +326,16 @@ export const ElectricalPlanView: React.FC = () => {
               borderRadius: 6,
               textTransform: 'none',
               fontWeight: 700,
-              fontSize: '0.78rem',
+              fontSize: isMobile ? '0.74rem' : '0.78rem',
               height: 28,
-              px: 1.5
+              px: isMobile ? 1 : 1.5,
+              whiteSpace: 'nowrap',
+              minWidth: 'fit-content'
             }}
           >
-            {isRoutingMode ? (routingSourceNodeId ? 'Click destino...' : 'Click origen...') : 'Trazar Cañería'}
+            {isRoutingMode
+              ? (routingSourceNodeId ? (isMobile ? 'Destino...' : 'Click destino...') : (isMobile ? 'Origen...' : 'Click origen...'))
+              : (isMobile ? 'Trazar' : 'Trazar Cañería')}
           </Button>
         </Tooltip>
 
@@ -241,27 +344,61 @@ export const ElectricalPlanView: React.FC = () => {
           size="small"
           value={selectedCircuitFilter}
           onChange={(e) => setSelectedCircuitFilter(e.target.value)}
-          sx={{ height: 28, fontSize: '0.75rem', fontWeight: 600, borderRadius: 6, minWidth: 120 }}
+          sx={{ height: 28, fontSize: '0.74rem', fontWeight: 600, borderRadius: 6, minWidth: isMobile ? 95 : 120 }}
         >
-          <MenuItem value="all">Todos los Circuitos</MenuItem>
-          <MenuItem value="C1-IUG">🔵 C1 - Iluminación (IUG)</MenuItem>
-          <MenuItem value="C2-TUG">🟠 C2 - Tomas (TUG)</MenuItem>
-          <MenuItem value="C3-TUE">🔴 C3 - Especiales (TUE)</MenuItem>
+          <MenuItem value="all">Todos</MenuItem>
+          <MenuItem value="C1-IUG">🔵 C1 - IUG</MenuItem>
+          <MenuItem value="C2-TUG">🟠 C2 - TUG</MenuItem>
+          <MenuItem value="C3-TUE">🔴 C3 - TUE</MenuItem>
         </Select>
 
-        {/* Zoom */}
-        <Stack direction="row" spacing={0.3}>
-          <IconButton size="small" onClick={() => handleZoom(1.15)}>
+        {/* Zoom en Desktop */}
+        {!isMobile && (
+          <Stack direction="row" spacing={0.3}>
+            <IconButton size="small" onClick={() => handleZoom(1.15)}>
+              <ZoomInIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={() => handleZoom(0.85)}>
+              <ZoomOutIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={handleResetView}>
+              <ResetViewIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        )}
+      </Paper>
+
+      {/* 📱 Botonera Táctil Flotante para Navegación con los Dedos en Celular */}
+      {isMobile && (
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'absolute',
+            bottom: 74,
+            left: 14,
+            zIndex: 20,
+            borderRadius: 4,
+            p: 0.4,
+            bgcolor: 'rgba(255, 255, 255, 0.94)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(226, 232, 240, 0.9)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.3,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.12)'
+          }}
+        >
+          <IconButton size="small" onClick={() => handleZoom(1.2)} sx={{ p: 0.8 }} title="Acercar">
             <ZoomInIcon fontSize="small" />
           </IconButton>
-          <IconButton size="small" onClick={() => handleZoom(0.85)}>
+          <IconButton size="small" onClick={() => handleZoom(0.8)} sx={{ p: 0.8 }} title="Alejar">
             <ZoomOutIcon fontSize="small" />
           </IconButton>
-          <IconButton size="small" onClick={handleResetView}>
+          <IconButton size="small" onClick={handleResetView} sx={{ p: 0.8 }} title="Centrar Plano">
             <ResetViewIcon fontSize="small" />
           </IconButton>
-        </Stack>
-      </Paper>
+        </Paper>
+      )}
 
       {/* Banner de Modo Trazado */}
       {isRoutingMode && (
@@ -300,13 +437,52 @@ export const ElectricalPlanView: React.FC = () => {
             setStagePos({ x: e.target.x(), y: e.target.y() });
           }
         }}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
       >
         {/* Capa 1: Arquitectura de Fondo (Estilo Blueprint Técnico Atenuado) */}
         <Layer listening={false}>
           {rooms.map((room) => {
+            const isTechnical = room.isTechnicalIsland || room.type.startsWith('technical_island');
             const isMetric = isMetricRoom(room);
-            const w = isMetric ? metersToPixels(room.dimensions?.width || 3) : 180;
-            const h = isMetric ? metersToPixels(room.dimensions?.length || 2.5) : 100;
+
+            if (isTechnical) {
+              const side = 54;
+              return (
+                <Group key={`arch-bg-${room.id}`} x={room.canvasPosition.x} y={room.canvasPosition.y}>
+                  <Rect x={0} y={0} width={side} height={side} fill="#fffbeb" stroke="#d97706" strokeWidth={1.5} cornerRadius={4} />
+                  <Text text="⚡" x={0} y={8} fontSize={14} width={side} align="center" />
+                  <Text text={room.name} x={2} y={26} fontSize={7.5} fontStyle="bold" fontFamily="Outfit, sans-serif" fill="#92400e" width={side - 4} align="center" />
+                </Group>
+              );
+            }
+
+            if (!isMetric) {
+              const isPalier = room.isAccessPoint || room.type === 'access_palier';
+              const w = metersToPixels(room.dimensions?.width > 0 ? room.dimensions.width : 2.5);
+              const h = metersToPixels(room.dimensions?.length > 0 ? room.dimensions.length : 2.5);
+              const radius = Math.max(w, h) * 0.55;
+              return (
+                <Group key={`arch-bg-${room.id}`} x={room.canvasPosition.x} y={room.canvasPosition.y}>
+                  <Circle
+                    x={w / 2}
+                    y={h / 2}
+                    radius={radius}
+                    fillRadialGradientStartPoint={{ x: 0, y: 0 }}
+                    fillRadialGradientStartRadius={0}
+                    fillRadialGradientEndPoint={{ x: 0, y: 0 }}
+                    fillRadialGradientEndRadius={radius}
+                    fillRadialGradientColorStops={[0, isPalier ? 'rgba(16, 185, 129, 0.20)' : 'rgba(148, 163, 184, 0.16)', 1, 'rgba(255, 255, 255, 0)']}
+                    strokeEnabled={false}
+                  />
+                  <Text text={room.name} x={0} y={h / 2 - 6} fontSize={10} fontStyle="bold" fontFamily="Outfit, sans-serif" fill="#64748b" width={w} align="center" />
+                </Group>
+              );
+            }
+
+            const w = metersToPixels(room.dimensions?.width || 3);
+            const h = metersToPixels(room.dimensions?.length || 2.5);
             return (
               <Group key={`arch-bg-${room.id}`} x={room.canvasPosition.x} y={room.canvasPosition.y}>
                 <Rect
