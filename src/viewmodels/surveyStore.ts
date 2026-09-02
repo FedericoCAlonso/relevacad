@@ -19,7 +19,8 @@ import {
   SharedWallProperties,
   OpeningProperties,
   TABIQUE_MATERIAL_CATALOG,
-  getConnectionOpenings
+  getConnectionOpenings,
+  WallInvasion
 } from '@/models/GraphModel';
 import {
   NodoElectrico,
@@ -29,7 +30,7 @@ import {
 } from '@/models/ElectricalGraphModel';
 import { SnapGuideLine } from './utils/snappingCalculator';
 import { solveAutoAssembly, applyInvasionsToRoomGeometries } from './utils/autoAssemblySolver';
-import { metersToPixels } from './utils/geometryUtils';
+import { metersToPixels, PIXELS_PER_METER } from './utils/geometryUtils';
 import { SurveyQuestion } from '@/models/IncrementalSurveyModel';
 import { RelevamientoProyecto, Cliente, RumboCardinal } from '@/models/ProjectModel';
 import { saveProject, getProjectById, autoSaveActiveSession } from '@/db/database';
@@ -1928,45 +1929,99 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       const overlapY = Math.min(mBottom, oBottom) - Math.max(mTop, oTop);
 
       let contactFound: { sourceWall: WallOrientation; targetWall: WallOrientation } | null = null;
+      let invasionDetected: WallInvasion | null = null;
       const tPx = metersToPixels(wallThicknessMeters);
 
-      // Contacto 1: movedRoom a la derecha de other (muro compartido o contacto directo)
+      // Contacto 1: movedRoom a la derecha de other (muro compartido plano)
       if ((Math.abs(mLeft - (oRight + tPx)) <= SNAP_CONTACT_TOLERANCE || Math.abs(mLeft - oRight) <= SNAP_CONTACT_TOLERANCE) && overlapY > 10) {
         contactFound = { sourceWall: 'west', targetWall: 'east' };
       }
-      // Contacto 2: movedRoom a la izquierda de other (muro compartido o contacto directo)
+      // Contacto 2: movedRoom a la izquierda de other (muro compartido plano)
       else if ((Math.abs(mRight + tPx - oLeft) <= SNAP_CONTACT_TOLERANCE || Math.abs(mRight - oLeft) <= SNAP_CONTACT_TOLERANCE) && overlapY > 10) {
         contactFound = { sourceWall: 'east', targetWall: 'west' };
       }
-      // Contacto 3: movedRoom abajo de other (muro compartido o contacto directo)
+      // Contacto 3: movedRoom abajo de other (muro compartido plano)
       else if ((Math.abs(mTop - (oBottom + tPx)) <= SNAP_CONTACT_TOLERANCE || Math.abs(mTop - oBottom) <= SNAP_CONTACT_TOLERANCE) && overlapX > 10) {
         contactFound = { sourceWall: 'north', targetWall: 'south' };
       }
-      // Contacto 4: movedRoom arriba de other (muro compartido o contacto directo)
+      // Contacto 4: movedRoom arriba de other (muro compartido plano)
       else if ((Math.abs(mBottom + tPx - oTop) <= SNAP_CONTACT_TOLERANCE || Math.abs(mBottom - oTop) <= SNAP_CONTACT_TOLERANCE) && overlapX > 10) {
         contactFound = { sourceWall: 'south', targetWall: 'north' };
+      }
+      // SUPERPOSICIÓN / AVANCE EN EL PLANO (Invasión Automática de Pared Común)
+      else if (isMetricRoom(movedRoom) && isMetricRoom(other) && overlapX > 10 && overlapY > 10) {
+        const isContained = (overlapX >= mW * 0.95 && overlapY >= mH * 0.95) || (overlapX >= oW * 0.95 && overlapY >= oH * 0.95);
+        if (!isContained) {
+          if (overlapX < overlapY) {
+            // Penetración horizontal (X)
+            if (mLeft < oLeft) {
+              contactFound = { sourceWall: 'east', targetWall: 'west' };
+              const depthMeters = Number(Math.max(0.1, (overlapX / PIXELS_PER_METER)).toFixed(2));
+              const widthMeters = Number((overlapY / PIXELS_PER_METER).toFixed(2));
+              invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
+            } else {
+              contactFound = { sourceWall: 'west', targetWall: 'east' };
+              const depthMeters = Number(Math.max(0.1, (overlapX / PIXELS_PER_METER)).toFixed(2));
+              const widthMeters = Number((overlapY / PIXELS_PER_METER).toFixed(2));
+              invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
+            }
+          } else {
+            // Penetración vertical (Y)
+            if (mTop < oTop) {
+              contactFound = { sourceWall: 'south', targetWall: 'north' };
+              const depthMeters = Number(Math.max(0.1, (overlapY / PIXELS_PER_METER)).toFixed(2));
+              const widthMeters = Number((overlapX / PIXELS_PER_METER).toFixed(2));
+              invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
+            } else {
+              contactFound = { sourceWall: 'north', targetWall: 'south' };
+              const depthMeters = Number(Math.max(0.1, (overlapY / PIXELS_PER_METER)).toFixed(2));
+              const widthMeters = Number((overlapX / PIXELS_PER_METER).toFixed(2));
+              invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
+            }
+          }
+        }
       }
 
       if (contactFound) {
         const existing = newConnections.find(
           (c) =>
-            (c.sourceRoomId === movedRoom.id &&
-              c.targetRoomId === other.id &&
-              c.sourceWall === contactFound!.sourceWall &&
-              c.targetWall === contactFound!.targetWall) ||
-            (c.sourceRoomId === other.id &&
-              c.targetRoomId === movedRoom.id &&
-              c.sourceWall === contactFound!.targetWall &&
-              c.targetWall === contactFound!.sourceWall)
+            (c.sourceRoomId === movedRoom.id && c.targetRoomId === other.id) ||
+            (c.sourceRoomId === other.id && c.targetRoomId === movedRoom.id)
         );
 
-        if (!existing) {
+        if (existing) {
+          const isSourceMoved = existing.sourceRoomId === movedRoom.id;
+          if (isSourceMoved) {
+            existing.sourceWall = contactFound.sourceWall;
+            existing.targetWall = contactFound.targetWall;
+          } else {
+            existing.sourceWall = contactFound.targetWall;
+            existing.targetWall = contactFound.sourceWall;
+          }
+
+          if (invasionDetected) {
+            const invType = isSourceMoved ? 'source_invades_target' : 'target_invades_source';
+            const newInv: WallInvasion = { ...invasionDetected, type: invType };
+            if (
+              existing.invasion?.type !== newInv.type ||
+              Math.abs((existing.invasion?.depthMeters || 0) - newInv.depthMeters!) > 0.04
+            ) {
+              existing.invasion = newInv;
+              existing.label = '🔲 Muro con Quiebre';
+              hasChanged = true;
+            }
+          } else if (existing.invasion && existing.invasion.type !== 'none') {
+            existing.invasion = { type: 'none' };
+            existing.label = '🧱 Muro Compartido';
+            hasChanged = true;
+          }
+        } else {
           newConnections.push({
             id: `conn-auto-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             sourceRoomId: movedRoom.id,
             targetRoomId: other.id,
             type: 'pared_comun',
-            label: '🧱 Muro Compartido',
+            label: invasionDetected ? '🔲 Muro con Quiebre' : '🧱 Muro Compartido',
             sourceWall: contactFound.sourceWall,
             targetWall: contactFound.targetWall,
             sourceHandle: `source-${contactFound.sourceWall}`,
@@ -1979,7 +2034,10 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
             },
             openings: [],
             hasElectricalPass: false,
-            notes: 'Muro compartido fusionado automáticamente por contacto'
+            notes: invasionDetected
+              ? 'Quiebre deducido automáticamente por avance en el plano'
+              : 'Muro compartido fusionado automáticamente por contacto',
+            invasion: invasionDetected || undefined
           });
           hasChanged = true;
         }
@@ -1987,7 +2045,8 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
     }
 
     if (hasChanged) {
-      set({ connections: newConnections });
+      const updatedRooms = applyInvasionsToRoomGeometries(get().rooms, newConnections);
+      set({ connections: newConnections, rooms: updatedRooms });
       get().saveCurrentProjectToDB();
     }
   },

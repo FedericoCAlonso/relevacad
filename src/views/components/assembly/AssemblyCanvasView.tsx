@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Stage, Layer, Line, Group, Text } from 'react-konva';
+import { Stage, Layer, Line, Group, Text, Circle } from 'react-konva';
 import {
   Box,
   Typography,
@@ -39,6 +39,8 @@ import {
   Add as AddIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
+import { useSurveyStore } from '@/viewmodels/surveyStore';
+import { SnapGuideLine } from '@/viewmodels/utils/snappingCalculator';
 import { metersToPixels, PIXELS_PER_METER } from '@/viewmodels/utils/geometryUtils';
 import { CONNECTION_TYPE_CATALOG, LogicalConnection } from '@/models/GraphModel';
 import { WallOrientation, isMetricRoom, isParcelBoundaryNode } from '@/models/RoomModel';
@@ -84,8 +86,230 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
     isAssistantOpen,
     toggleAssistantOpen,
     questionsQueue,
-    getOrCreateWallConnection
+    getOrCreateWallConnection,
+    updateRoomDimensions
   } = useSurveyViewModel();
+
+  const syncRoomWallAdjacencies = useSurveyStore((state) => state.syncRoomWallAdjacencies);
+  const setSnapGuides = useSurveyStore((state) => state.setSnapGuides);
+
+  const selectedRoomWidthPx =
+    selectedRoom && isMetricRoom(selectedRoom)
+      ? metersToPixels(selectedRoom.dimensions?.width || 3.0)
+      : 0;
+  const selectedRoomLengthPx =
+    selectedRoom && isMetricRoom(selectedRoom)
+      ? metersToPixels(selectedRoom.dimensions?.length || 2.5)
+      : 0;
+
+  const handleResizeWidthDragMove = useCallback(
+    (e: any) => {
+      if (!selectedRoom || !isMetricRoom(selectedRoom)) return;
+      const currentHandleX = e.target.x();
+      const sX = selectedRoom.canvasPosition.x;
+      const sY = selectedRoom.canvasPosition.y;
+      const sL = metersToPixels(selectedRoom.dimensions?.length || 2.5);
+
+      let snappedX = currentHandleX;
+      let bestGuide: SnapGuideLine | null = null;
+      let minD = 16;
+
+      const otherRooms = rooms.filter((r) => r.id !== selectedRoom.id);
+      for (const target of otherRooms) {
+        const isTargetNonMetric = !isMetricRoom(target);
+        const targetW = isTargetNonMetric ? 180 : metersToPixels(target.dimensions?.width || 3.0);
+        const targetH = isTargetNonMetric ? 100 : metersToPixels(target.dimensions?.length || 2.5);
+        const tLeft = target.canvasPosition.x;
+        const tRight = tLeft + targetW;
+        const tTop = target.canvasPosition.y;
+        const tBottom = tTop + targetH;
+
+        // Alinear borde derecho con cara izquierda del vecino
+        const d1 = Math.abs(currentHandleX - tLeft);
+        if (d1 < minD) {
+          minD = d1;
+          snappedX = tLeft;
+          bestGuide = {
+            id: `snap-w-align-${target.id}`,
+            orientation: 'vertical',
+            position: tLeft,
+            start: Math.min(sY, tTop) - 40,
+            end: Math.max(sY + sL, tBottom) + 40,
+            targetRoomId: target.id,
+            snapType: 'projection_face',
+            label: `📏 Ancho: ${((tLeft - sX) / PIXELS_PER_METER).toFixed(2)}m (Alineado con ${target.name})`
+          };
+        }
+
+        // Alinear borde derecho con cara derecha del vecino
+        const d2 = Math.abs(currentHandleX - tRight);
+        if (d2 < minD) {
+          minD = d2;
+          snappedX = tRight;
+          bestGuide = {
+            id: `snap-w-align-right-${target.id}`,
+            orientation: 'vertical',
+            position: tRight,
+            start: Math.min(sY, tTop) - 40,
+            end: Math.max(sY + sL, tBottom) + 40,
+            targetRoomId: target.id,
+            snapType: 'projection_face',
+            label: `📏 Ancho: ${((tRight - sX) / PIXELS_PER_METER).toFixed(2)}m (Alineado con ${target.name})`
+          };
+        }
+
+        // Igualar ancho con ancho del vecino
+        const d3 = Math.abs(currentHandleX - sX - targetW);
+        if (d3 < minD) {
+          minD = d3;
+          snappedX = sX + targetW;
+          bestGuide = {
+            id: `snap-w-match-${target.id}`,
+            orientation: 'vertical',
+            position: sX + targetW,
+            start: Math.min(sY, tTop) - 40,
+            end: Math.max(sY + sL, tBottom) + 40,
+            targetRoomId: target.id,
+            snapType: 'projection_face',
+            label: `📏 Ancho: ${(targetW / PIXELS_PER_METER).toFixed(2)}m (Igual a ${target.name})`
+          };
+        }
+      }
+
+      if (bestGuide) {
+        e.target.x(snappedX);
+        setSnapGuides([bestGuide]);
+      } else {
+        setSnapGuides([]);
+      }
+    },
+    [selectedRoom, rooms, setSnapGuides]
+  );
+
+  const handleResizeWidthDragEnd = useCallback(
+    (e: any) => {
+      if (!selectedRoom || !isMetricRoom(selectedRoom)) return;
+      const finalHandleX = e.target.x();
+      const sX = selectedRoom.canvasPosition.x;
+      const sL = metersToPixels(selectedRoom.dimensions?.length || 2.5);
+      const newWidthMeters = Number(Math.max(0.6, (finalHandleX - sX) / PIXELS_PER_METER).toFixed(2));
+
+      updateRoomDimensions(selectedRoom.id, {
+        ...selectedRoom.dimensions,
+        width: newWidthMeters,
+        widthLocked: true
+      });
+      setSnapGuides([]);
+      e.target.position({ x: sX + metersToPixels(newWidthMeters), y: selectedRoom.canvasPosition.y + sL / 2 });
+      syncRoomWallAdjacencies(selectedRoom.id);
+    },
+    [selectedRoom, updateRoomDimensions, setSnapGuides, syncRoomWallAdjacencies]
+  );
+
+  const handleResizeLengthDragMove = useCallback(
+    (e: any) => {
+      if (!selectedRoom || !isMetricRoom(selectedRoom)) return;
+      const currentHandleY = e.target.y();
+      const sX = selectedRoom.canvasPosition.x;
+      const sY = selectedRoom.canvasPosition.y;
+      const sW = metersToPixels(selectedRoom.dimensions?.width || 3.0);
+
+      let snappedY = currentHandleY;
+      let bestGuide: SnapGuideLine | null = null;
+      let minD = 16;
+
+      const otherRooms = rooms.filter((r) => r.id !== selectedRoom.id);
+      for (const target of otherRooms) {
+        const isTargetNonMetric = !isMetricRoom(target);
+        const targetW = isTargetNonMetric ? 180 : metersToPixels(target.dimensions?.width || 3.0);
+        const targetH = isTargetNonMetric ? 100 : metersToPixels(target.dimensions?.length || 2.5);
+        const tLeft = target.canvasPosition.x;
+        const tRight = tLeft + targetW;
+        const tTop = target.canvasPosition.y;
+        const tBottom = tTop + targetH;
+
+        // Alinear borde inferior con cara superior del vecino
+        const d1 = Math.abs(currentHandleY - tTop);
+        if (d1 < minD) {
+          minD = d1;
+          snappedY = tTop;
+          bestGuide = {
+            id: `snap-l-align-${target.id}`,
+            orientation: 'horizontal',
+            position: tTop,
+            start: Math.min(sX, tLeft) - 40,
+            end: Math.max(sX + sW, tRight) + 40,
+            targetRoomId: target.id,
+            snapType: 'projection_face',
+            label: `📏 Longitud: ${((tTop - sY) / PIXELS_PER_METER).toFixed(2)}m (Alineado con ${target.name})`
+          };
+        }
+
+        // Alinear borde inferior con cara inferior del vecino
+        const d2 = Math.abs(currentHandleY - tBottom);
+        if (d2 < minD) {
+          minD = d2;
+          snappedY = tBottom;
+          bestGuide = {
+            id: `snap-l-align-bottom-${target.id}`,
+            orientation: 'horizontal',
+            position: tBottom,
+            start: Math.min(sX, tLeft) - 40,
+            end: Math.max(sX + sW, tRight) + 40,
+            targetRoomId: target.id,
+            snapType: 'projection_face',
+            label: `📏 Longitud: ${((tBottom - sY) / PIXELS_PER_METER).toFixed(2)}m (Alineado con ${target.name})`
+          };
+        }
+
+        // Igualar longitud con la longitud del vecino
+        const d3 = Math.abs(currentHandleY - sY - targetH);
+        if (d3 < minD) {
+          minD = d3;
+          snappedY = sY + targetH;
+          bestGuide = {
+            id: `snap-l-match-${target.id}`,
+            orientation: 'horizontal',
+            position: sY + targetH,
+            start: Math.min(sX, tLeft) - 40,
+            end: Math.max(sX + sW, tRight) + 40,
+            targetRoomId: target.id,
+            snapType: 'projection_face',
+            label: `📏 Longitud: ${(targetH / PIXELS_PER_METER).toFixed(2)}m (Igual a ${target.name})`
+          };
+        }
+      }
+
+      if (bestGuide) {
+        e.target.y(snappedY);
+        setSnapGuides([bestGuide]);
+      } else {
+        setSnapGuides([]);
+      }
+    },
+    [selectedRoom, rooms, setSnapGuides]
+  );
+
+  const handleResizeLengthDragEnd = useCallback(
+    (e: any) => {
+      if (!selectedRoom || !isMetricRoom(selectedRoom)) return;
+      const finalHandleY = e.target.y();
+      const sX = selectedRoom.canvasPosition.x;
+      const sY = selectedRoom.canvasPosition.y;
+      const sW = metersToPixels(selectedRoom.dimensions?.width || 3.0);
+      const newLengthMeters = Number(Math.max(0.6, (finalHandleY - sY) / PIXELS_PER_METER).toFixed(2));
+
+      updateRoomDimensions(selectedRoom.id, {
+        ...selectedRoom.dimensions,
+        length: newLengthMeters,
+        lengthLocked: true
+      });
+      setSnapGuides([]);
+      e.target.position({ x: sX + sW / 2, y: sY + metersToPixels(newLengthMeters) });
+      syncRoomWallAdjacencies(selectedRoom.id);
+    },
+    [selectedRoom, updateRoomDimensions, setSnapGuides, syncRoomWallAdjacencies]
+  );
 
   const handleWallClick = useCallback(
     (roomId: string, wall: WallOrientation) => {
@@ -572,6 +796,75 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
             />
           ))}
         </Layer>
+
+        {/* Capa 3.5: Tiradores de Cota y Redimensionamiento con Snap Magnético */}
+        {selectedRoom && isMetricRoom(selectedRoom) && (
+          <Layer>
+            {/* Tirador Este (Redimensionar Ancho con Snap) */}
+            <Group
+              x={selectedRoom.canvasPosition.x + selectedRoomWidthPx}
+              y={selectedRoom.canvasPosition.y + selectedRoomLengthPx / 2}
+              draggable
+              dragBoundFunc={(pos) => ({
+                x: Math.max(selectedRoom.canvasPosition.x + 30, pos.x),
+                y: selectedRoom.canvasPosition.y + selectedRoomLengthPx / 2
+              })}
+              onDragMove={handleResizeWidthDragMove}
+              onDragEnd={handleResizeWidthDragEnd}
+            >
+              <Circle
+                radius={isMobile ? 12 : 10}
+                fill="#0284c7"
+                stroke="#ffffff"
+                strokeWidth={2}
+                shadowColor="#0284c7"
+                shadowBlur={8}
+                shadowOpacity={0.6}
+              />
+              <Text
+                text="↔"
+                x={-5}
+                y={-6}
+                fontSize={isMobile ? 12 : 10}
+                fontStyle="bold"
+                fill="#ffffff"
+                listening={false}
+              />
+            </Group>
+
+            {/* Tirador Sur (Redimensionar Longitud con Snap) */}
+            <Group
+              x={selectedRoom.canvasPosition.x + selectedRoomWidthPx / 2}
+              y={selectedRoom.canvasPosition.y + selectedRoomLengthPx}
+              draggable
+              dragBoundFunc={(pos) => ({
+                x: selectedRoom.canvasPosition.x + selectedRoomWidthPx / 2,
+                y: Math.max(selectedRoom.canvasPosition.y + 30, pos.y)
+              })}
+              onDragMove={handleResizeLengthDragMove}
+              onDragEnd={handleResizeLengthDragEnd}
+            >
+              <Circle
+                radius={isMobile ? 12 : 10}
+                fill="#0284c7"
+                stroke="#ffffff"
+                strokeWidth={2}
+                shadowColor="#0284c7"
+                shadowBlur={8}
+                shadowOpacity={0.6}
+              />
+              <Text
+                text="↕"
+                x={-4}
+                y={-6}
+                fontSize={isMobile ? 12 : 10}
+                fontStyle="bold"
+                fill="#ffffff"
+                listening={false}
+              />
+            </Group>
+          </Layer>
+        )}
 
         {/* Capa 4: Ejes Medianeros y Límites de Parcela (No interactiva, simbología profesional CAD) */}
         <Layer listening={false}>

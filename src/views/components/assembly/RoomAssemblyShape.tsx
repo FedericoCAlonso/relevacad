@@ -299,6 +299,12 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
 
     // 1. Si la pared no tiene aberturas (pared ciega o compartida sólida sin vanos)
     if (intervals.length === 0) {
+      const wallHasBreak = (room.geometry?.wallBreaks || []).some((b) => b.wall === wall);
+      if (wallHasBreak) {
+        // La pared con quiebre es renderizada por el polígono perimetral con quiebres en Z
+        return null;
+      }
+
       let x = 0;
       let y = 0;
       let w = roomWidthPx;
@@ -490,6 +496,9 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             points={polyPointsPx}
             closed
             fill={isDescubierto ? '#f0fdf4' : isSemicubierto ? '#fffdfa' : (room.color || '#f8fafc')}
+            stroke="#1e293b"
+            strokeWidth={wallThicknessPx}
+            lineJoin="miter"
             opacity={isSelected ? 0.95 : 0.85}
             shadowColor={isSelected ? '#00629e' : '#000000'}
             shadowBlur={isSelected ? 16 : 4}
@@ -518,19 +527,30 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
         {renderWallWithOpenings(planimetry.east, widthPx, lengthPx)}
 
         {/* Indicador de Selección Activa */}
-        {isSelected && (
-          <Rect
-            x={-wallThicknessPx - 1}
-            y={-wallThicknessPx - 1}
-            width={widthPx + 2 * wallThicknessPx + 2}
-            height={lengthPx + 2 * wallThicknessPx + 2}
-            stroke="#0284c7"
-            strokeWidth={2}
-            dash={[6, 4]}
-            listening={false}
-            perfectDrawEnabled={false}
-          />
-        )}
+        {isSelected &&
+          (hasBreaks ? (
+            <Line
+              points={polyPointsPx}
+              closed
+              stroke="#0284c7"
+              strokeWidth={2}
+              dash={[6, 4]}
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          ) : (
+            <Rect
+              x={-wallThicknessPx - 1}
+              y={-wallThicknessPx - 1}
+              width={widthPx + 2 * wallThicknessPx + 2}
+              height={lengthPx + 2 * wallThicknessPx + 2}
+              stroke="#0284c7"
+              strokeWidth={2}
+              dash={[6, 4]}
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          ))}
 
         {/* Nombre y Dimensiones Interiores */}
         <Text

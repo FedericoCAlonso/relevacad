@@ -212,6 +212,8 @@ export interface WallInvasionProperties {
   notes?: string;
 }
 
+export type WallInvasion = WallInvasionProperties;
+
 export interface LogicalConnection {
   id: string;
   sourceRoomId: string;

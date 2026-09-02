@@ -387,81 +387,68 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
             )}
           </Box>
 
-          {/* 🔲 SECCIÓN 3: Quiebre / Invasión de Muro (Placares, Nichos, Duchas) */}
-          <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 3, border: '1px solid #e2e8f0' }}>
-            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <TuneIcon color="primary" fontSize="small" />
-                <Typography variant="subtitle2" fontWeight={700}>
-                  Quiebre / Invasión de Muro (Placares, Nichos, Duchas)
-                </Typography>
-              </Stack>
-              {invasionType !== 'none' && (
+          {/* 🔲 SECCIÓN 3: Quiebre de Muro (Solo visible si hay quiebre activo por avance en el plano) */}
+          {invasionType !== 'none' && (
+            <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 3, border: '1px solid #bbf7d0' }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TuneIcon color="success" fontSize="small" />
+                  <Typography variant="subtitle2" fontWeight={700} color="#166534">
+                    Quiebre de Pared Común (Detectado por Solape)
+                  </Typography>
+                </Stack>
                 <Chip
                   label="Quiebre Activo"
                   size="small"
-                  color="secondary"
+                  color="success"
                   sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700 }}
                 />
-              )}
-            </Box>
+              </Box>
 
-            <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
-              Indica si uno de los ambientes se adentra en el perímetro del otro. El autoensamblador deducirá automáticamente la posición y ajustará la huella y superficie de ambos recintos.
-            </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+                La pared común tomó forma por el avance de un ambiente sobre el otro en el plano. Podés ajustar las medidas exactas a mano para darle mayor precisión:
+              </Typography>
 
-            <Stack spacing={2}>
-              <TextField
-                select
-                label="Sentido del Quiebre / Invasión"
-                value={invasionType}
-                onChange={(e) => setInvasionType(e.target.value as any)}
-                fullWidth
-                size="small"
-              >
-                <MenuItem value="none">
-                  🔘 Muro Recto (Sin quiebre ni invasión)
-                </MenuItem>
-                <MenuItem value="source_invades_target">
-                  ⬅️ <strong>{sourceRoom?.name || 'Ambiente A'}</strong> invade a <strong>{targetRoom?.name || 'Ambiente B'}</strong>
-                </MenuItem>
-                <MenuItem value="target_invades_source">
-                  ➡️ <strong>{targetRoom?.name || 'Ambiente B'}</strong> invade a <strong>{sourceRoom?.name || 'Ambiente A'}</strong>
-                </MenuItem>
-              </TextField>
-
-              {invasionType !== 'none' && (
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Profundidad de Invasión (m) (Opcional)"
-                      type="number"
-                      inputProps={{ step: 0.05, min: 0.0, max: 3.0 }}
-                      value={invasionDepth === 0 ? '' : invasionDepth}
-                      onChange={(e) => setInvasionDepth(parseFloat(e.target.value) || 0)}
-                      fullWidth
-                      size="small"
-                      placeholder="Auto (0.60m o diferencia de cotas)"
-                      helperText={invasionDepth > 0 ? `${invasionDepth}m de profundidad` : 'Vacío/0 = El calculador lo deduce automáticamente'}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Ancho del Quiebre (m) (Opcional)"
-                      type="number"
-                      inputProps={{ step: 0.05, min: 0, max: 10.0 }}
-                      value={invasionWidth === 0 ? '' : invasionWidth}
-                      placeholder="Todo el tramo compartido"
-                      onChange={(e) => setInvasionWidth(parseFloat(e.target.value) || 0)}
-                      fullWidth
-                      size="small"
-                      helperText={invasionWidth > 0 ? `${invasionWidth}m de ancho` : 'Vacío = deduce todo el contacto compartido'}
-                    />
-                  </Grid>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Profundidad del Quiebre (m)"
+                    type="number"
+                    inputProps={{ step: 0.05, min: 0.05, max: 3.0 }}
+                    value={invasionDepth === 0 ? '' : invasionDepth}
+                    onChange={(e) => setInvasionDepth(parseFloat(e.target.value) || 0)}
+                    fullWidth
+                    size="small"
+                    helperText="Profundidad de penetración en metros"
+                  />
                 </Grid>
-              )}
-            </Stack>
-          </Box>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Ancho del Quiebre (m)"
+                    type="number"
+                    inputProps={{ step: 0.05, min: 0.1, max: 10.0 }}
+                    value={invasionWidth === 0 ? '' : invasionWidth}
+                    placeholder="Todo el tramo compartido"
+                    onChange={(e) => setInvasionWidth(parseFloat(e.target.value) || 0)}
+                    fullWidth
+                    size="small"
+                    helperText={invasionWidth > 0 ? `${invasionWidth}m de ancho` : 'Vacío = todo el contacto compartido'}
+                  />
+                </Grid>
+              </Grid>
+
+              <Box mt={1.5} display="flex" justifyContent="flex-end">
+                <Button
+                  size="small"
+                  color="inherit"
+                  onClick={() => setInvasionType('none')}
+                  sx={{ textTransform: 'none', fontSize: '0.72rem', color: '#64748b' }}
+                >
+                  Restablecer a Muro Recto
+                </Button>
+              </Box>
+            </Box>
+          )}
 
           {/* 🚪 SECCIÓN 4: Aberturas Hospedadas en este Muro (0, 1 o Varias) */}
           <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 3, border: '1px solid #e2e8f0' }}>
