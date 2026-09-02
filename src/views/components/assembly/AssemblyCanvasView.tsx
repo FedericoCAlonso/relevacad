@@ -36,7 +36,8 @@ import {
   AccountTree as TopologyLinesIcon,
   Architecture as ArchPlanIcon,
   Tune as TuneIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
 import { useSurveyStore } from '@/viewmodels/surveyStore';
@@ -45,7 +46,6 @@ import { metersToPixels, PIXELS_PER_METER } from '@/viewmodels/utils/geometryUti
 import { CONNECTION_TYPE_CATALOG, LogicalConnection } from '@/models/GraphModel';
 import { WallOrientation, isMetricRoom, isParcelBoundaryNode } from '@/models/RoomModel';
 import { RoomAssemblyShape } from './RoomAssemblyShape';
-import { IncrementalSurveyAssistant } from './IncrementalSurveyAssistant';
 import { EditOpeningDialog } from '../topology/EditOpeningDialog';
 import { RoomDetailDialog } from '../topology/RoomDetailDialog';
 
@@ -83,9 +83,6 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
     handleRoomDragEnd,
     wallThicknessMeters,
     setWallThickness,
-    isAssistantOpen,
-    toggleAssistantOpen,
-    questionsQueue,
     getOrCreateWallConnection,
     updateRoomDimensions
   } = useSurveyViewModel();
@@ -596,18 +593,6 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
             />
           </Tooltip>
 
-          {/* 🤖 Botón Asistente de Relevamiento Incremental */}
-          <Tooltip title={isAssistantOpen ? 'Ocultar Asistente de Relevamiento' : 'Abrir Asistente de Relevamiento'}>
-            <Chip
-              label={isMobile ? (questionsQueue.length > 0 ? `Asist. (${questionsQueue.length})` : 'Asist. ✓') : `Asistente ${questionsQueue.length > 0 ? `(${questionsQueue.length})` : '✓'}`}
-              color={questionsQueue.length > 0 ? 'warning' : 'success'}
-              size="small"
-              onClick={() => toggleAssistantOpen()}
-              clickable
-              variant={isAssistantOpen ? 'filled' : 'outlined'}
-              sx={{ fontWeight: 700, fontSize: '0.74rem', height: 28 }}
-            />
-          </Tooltip>
 
           <Box sx={{ height: 18, width: 1, bgcolor: '#cbd5e1' }} />
 
@@ -789,8 +774,6 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
               wallThicknessPx={wallThicknessPx}
               openings={connections}
               onSelect={selectRoom}
-              onWallClick={handleWallClick}
-              onOpenParametrization={(id) => setDetailRoomId(id)}
               onDragMove={handleNodeDragMove}
               onDragEnd={handleNodeDragEnd}
             />
@@ -809,23 +792,30 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                 x: Math.max(selectedRoom.canvasPosition.x + 30, pos.x),
                 y: selectedRoom.canvasPosition.y + selectedRoomLengthPx / 2
               })}
+              onMouseDown={(e) => { e.cancelBubble = true; }}
+              onTouchStart={(e) => { e.cancelBubble = true; }}
+              onClick={(e) => { e.cancelBubble = true; }}
+              onTap={(e) => { e.cancelBubble = true; }}
+              onDragStart={(e) => { e.cancelBubble = true; }}
               onDragMove={handleResizeWidthDragMove}
               onDragEnd={handleResizeWidthDragEnd}
             >
+              {/* Zona de contacto amplia para dedos en celular (48px de diámetro) */}
+              <Circle radius={isMobile ? 24 : 16} fill="transparent" />
               <Circle
-                radius={isMobile ? 12 : 10}
+                radius={isMobile ? 13 : 10}
                 fill="#0284c7"
                 stroke="#ffffff"
-                strokeWidth={2}
+                strokeWidth={2.5}
                 shadowColor="#0284c7"
-                shadowBlur={8}
-                shadowOpacity={0.6}
+                shadowBlur={10}
+                shadowOpacity={0.7}
               />
               <Text
                 text="↔"
-                x={-5}
-                y={-6}
-                fontSize={isMobile ? 12 : 10}
+                x={-6}
+                y={-7}
+                fontSize={isMobile ? 13 : 10}
                 fontStyle="bold"
                 fill="#ffffff"
                 listening={false}
@@ -841,23 +831,30 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                 x: selectedRoom.canvasPosition.x + selectedRoomWidthPx / 2,
                 y: Math.max(selectedRoom.canvasPosition.y + 30, pos.y)
               })}
+              onMouseDown={(e) => { e.cancelBubble = true; }}
+              onTouchStart={(e) => { e.cancelBubble = true; }}
+              onClick={(e) => { e.cancelBubble = true; }}
+              onTap={(e) => { e.cancelBubble = true; }}
+              onDragStart={(e) => { e.cancelBubble = true; }}
               onDragMove={handleResizeLengthDragMove}
               onDragEnd={handleResizeLengthDragEnd}
             >
+              {/* Zona de contacto amplia para dedos en celular (48px de diámetro) */}
+              <Circle radius={isMobile ? 24 : 16} fill="transparent" />
               <Circle
-                radius={isMobile ? 12 : 10}
+                radius={isMobile ? 13 : 10}
                 fill="#0284c7"
                 stroke="#ffffff"
-                strokeWidth={2}
+                strokeWidth={2.5}
                 shadowColor="#0284c7"
-                shadowBlur={8}
-                shadowOpacity={0.6}
+                shadowBlur={10}
+                shadowOpacity={0.7}
               />
               <Text
                 text="↕"
                 x={-4}
-                y={-6}
-                fontSize={isMobile ? 12 : 10}
+                y={-7}
+                fontSize={isMobile ? 13 : 10}
                 fontStyle="bold"
                 fill="#ffffff"
                 listening={false}
@@ -1074,8 +1071,94 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         />
       )}
 
-      {/* 🤖 Asistente de Relevamiento Incremental Móvil */}
-      <IncrementalSurveyAssistant />
+      {/* 🧭 Barra de Acción de Ambiente Seleccionado (Material 3 Mobile-First) */}
+      {selectedRoom && (
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'absolute',
+            bottom: isMobile ? 14 : 22,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            py: 0.6,
+            px: 1.5,
+            borderRadius: 6,
+            bgcolor: 'rgba(255, 255, 255, 0.96)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid #0284c7',
+            boxShadow: '0 8px 24px rgba(2, 132, 199, 0.2)'
+          }}
+        >
+          <Typography
+            variant="body2"
+            fontWeight={700}
+            color="#0f172a"
+            sx={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+          >
+            🏠 {selectedRoom.name}
+          </Typography>
+
+          {isMetricRoom(selectedRoom) && (
+            <Chip
+              label={`${selectedRoom.dimensions.width} × ${selectedRoom.dimensions.length}m`}
+              size="small"
+              sx={{
+                height: 22,
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                bgcolor: '#e0f2fe',
+                color: '#0369a1'
+              }}
+            />
+          )}
+
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => handleWallClick(selectedRoom.id, 'north')}
+            sx={{
+              borderRadius: 4,
+              textTransform: 'none',
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              height: 26,
+              px: 1,
+              borderColor: '#cbd5e1'
+            }}
+          >
+            🚪 Aberturas / Muro
+          </Button>
+
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => setDetailRoomId(selectedRoom.id)}
+            sx={{
+              borderRadius: 4,
+              textTransform: 'none',
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              height: 26,
+              px: 1,
+              borderColor: '#cbd5e1'
+            }}
+          >
+            ⚙️ Datos
+          </Button>
+
+          <IconButton
+            size="small"
+            onClick={() => selectRoom(null as any)}
+            sx={{ p: 0.3, color: '#64748b' }}
+          >
+            <CloseIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Paper>
+      )}
     </Box>
   );
 };

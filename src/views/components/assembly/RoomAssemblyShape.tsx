@@ -11,7 +11,7 @@
 import React, { memo, useRef, useEffect } from 'react';
 import { Group, Rect, Text, Line, Circle } from 'react-konva';
 import Konva from 'konva';
-import { Room, TIPO_CUBIERTA_CATALOG, WallOrientation, isMetricRoom } from '@/models/RoomModel';
+import { Room, TIPO_CUBIERTA_CATALOG, isMetricRoom } from '@/models/RoomModel';
 import { LogicalConnection } from '@/models/GraphModel';
 import { ELECTRICAL_ASSET_CATALOG } from '@/models/ElectricalTypes';
 import { metersToPixels, PIXELS_PER_METER } from '@/viewmodels/utils/geometryUtils';
@@ -29,8 +29,6 @@ interface RoomAssemblyShapeProps {
   wallThicknessPx: number;
   openings: LogicalConnection[];
   onSelect: (roomId: string) => void;
-  onOpenParametrization?: (roomId: string) => void;
-  onWallClick?: (roomId: string, wall: WallOrientation) => void;
   onDragMove: (roomId: string, node: any) => void;
   onDragEnd: (roomId: string, node: any) => void;
 }
@@ -42,8 +40,6 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
   wallThicknessPx,
   openings,
   onSelect,
-  onOpenParametrization,
-  onWallClick,
   onDragMove,
   onDragEnd
 }) => {
@@ -470,16 +466,6 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
         e.cancelBubble = true;
         onSelect(room.id);
       }}
-      onDblClick={(e) => {
-        e.cancelBubble = true;
-        onSelect(room.id);
-        onOpenParametrization?.(room.id);
-      }}
-      onDblTap={(e) => {
-        e.cancelBubble = true;
-        onSelect(room.id);
-        onOpenParametrization?.(room.id);
-      }}
       onDragMove={(e) => {
         e.cancelBubble = true;
         onDragMove(room.id, e.target);
@@ -626,92 +612,6 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
           );
         })}
       </Group>
-
-      {/* 🧱 Zonas de clic interactivo en las 4 paredes (para tocar la pared y editar o agregar aberturas) */}
-      {/* Pared Norte */}
-      <Rect
-        x={0}
-        y={-wallThicknessPx - 6}
-        width={widthPx}
-        height={wallThicknessPx + 12}
-        fill="transparent"
-        stroke={isSelected ? 'rgba(2, 132, 199, 0.5)' : 'transparent'}
-        strokeWidth={2}
-        dash={[4, 2]}
-        onClick={(e) => {
-          e.cancelBubble = true;
-          onSelect(room.id);
-          onWallClick?.(room.id, 'north');
-        }}
-        onTap={(e) => {
-          e.cancelBubble = true;
-          onSelect(room.id);
-          onWallClick?.(room.id, 'north');
-        }}
-      />
-      {/* Pared Sur */}
-      <Rect
-        x={0}
-        y={lengthPx - 6}
-        width={widthPx}
-        height={wallThicknessPx + 12}
-        fill="transparent"
-        stroke={isSelected ? 'rgba(2, 132, 199, 0.5)' : 'transparent'}
-        strokeWidth={2}
-        dash={[4, 2]}
-        onClick={(e) => {
-          e.cancelBubble = true;
-          onSelect(room.id);
-          onWallClick?.(room.id, 'south');
-        }}
-        onTap={(e) => {
-          e.cancelBubble = true;
-          onSelect(room.id);
-          onWallClick?.(room.id, 'south');
-        }}
-      />
-      {/* Pared Oeste */}
-      <Rect
-        x={-wallThicknessPx - 6}
-        y={0}
-        width={wallThicknessPx + 12}
-        height={lengthPx}
-        fill="transparent"
-        stroke={isSelected ? 'rgba(2, 132, 199, 0.5)' : 'transparent'}
-        strokeWidth={2}
-        dash={[4, 2]}
-        onClick={(e) => {
-          e.cancelBubble = true;
-          onSelect(room.id);
-          onWallClick?.(room.id, 'west');
-        }}
-        onTap={(e) => {
-          e.cancelBubble = true;
-          onSelect(room.id);
-          onWallClick?.(room.id, 'west');
-        }}
-      />
-      {/* Pared Este */}
-      <Rect
-        x={widthPx - 6}
-        y={0}
-        width={wallThicknessPx + 12}
-        height={lengthPx}
-        fill="transparent"
-        stroke={isSelected ? 'rgba(2, 132, 199, 0.5)' : 'transparent'}
-        strokeWidth={2}
-        dash={[4, 2]}
-        onClick={(e) => {
-          e.cancelBubble = true;
-          onSelect(room.id);
-          onWallClick?.(room.id, 'east');
-        }}
-        onTap={(e) => {
-          e.cancelBubble = true;
-          onSelect(room.id);
-          onWallClick?.(room.id, 'east');
-        }}
-      />
     </Group>
   );
 });
