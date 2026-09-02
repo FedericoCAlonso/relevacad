@@ -292,7 +292,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                 minWidth: 'fit-content'
               }}
             >
-              + Ambiente
+              Ambiente
             </Button>
           )}
 

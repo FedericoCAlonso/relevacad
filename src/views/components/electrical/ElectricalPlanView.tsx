@@ -308,7 +308,7 @@ export const ElectricalPlanView: React.FC = () => {
             minWidth: 'fit-content'
           }}
         >
-          {isMobile ? '+ Boca' : '+ Boca Eléctrica'}
+          {isMobile ? 'Boca' : 'Boca Eléctrica'}
         </Button>
 
         {/* Botón Trazar Cañería */}

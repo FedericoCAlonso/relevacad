@@ -133,20 +133,22 @@ export function calculateRoomPlanimetry(
     const overlapX = Math.max(0, Math.min(rRight, oRight) - Math.max(rLeft, oLeft));
     const overlapY = Math.max(0, Math.min(rBottom, oBottom) - Math.max(rTop, oTop));
 
-    // Contacto Norte de room con Sur de other
-    if (Math.abs(rTop - oBottom) <= 8 && overlapX > 10) {
+    const tPx = metersToPixels(defaultWallThicknessMeters);
+
+    // Contacto Norte de room con Sur de other (la misma pared compartida o contacto directo)
+    if ((Math.abs(rTop - (oBottom + tPx)) <= 12 || Math.abs(rTop - oBottom) <= 12) && overlapX > 10) {
       sharedNorth = true;
     }
-    // Contacto Sur de room con Norte de other
-    if (Math.abs(rBottom - oTop) <= 8 && overlapX > 10) {
+    // Contacto Sur de room con Norte de other (la misma pared compartida o contacto directo)
+    if ((Math.abs(rBottom + tPx - oTop) <= 12 || Math.abs(rBottom - oTop) <= 12) && overlapX > 10) {
       sharedSouth = true;
     }
-    // Contacto Oeste de room con Este de other
-    if (Math.abs(rLeft - oRight) <= 8 && overlapY > 10) {
+    // Contacto Oeste de room con Este de other (la misma pared compartida o contacto directo)
+    if ((Math.abs(rLeft - (oRight + tPx)) <= 12 || Math.abs(rLeft - oRight) <= 12) && overlapY > 10) {
       sharedWest = true;
     }
-    // Contacto Este de room con Oeste de other
-    if (Math.abs(rRight - oLeft) <= 8 && overlapY > 10) {
+    // Contacto Este de room con Oeste de other (la misma pared compartida o contacto directo)
+    if ((Math.abs(rRight + tPx - oLeft) <= 12 || Math.abs(rRight - oLeft) <= 12) && overlapY > 10) {
       sharedEast = true;
     }
   }

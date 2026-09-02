@@ -1928,21 +1928,22 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       const overlapY = Math.min(mBottom, oBottom) - Math.max(mTop, oTop);
 
       let contactFound: { sourceWall: WallOrientation; targetWall: WallOrientation } | null = null;
+      const tPx = metersToPixels(wallThicknessMeters);
 
-      // Contacto 1: movedRoom a la derecha de other (movedRoom West toca other East)
-      if (Math.abs(mLeft - oRight) <= SNAP_CONTACT_TOLERANCE && overlapY > 10) {
+      // Contacto 1: movedRoom a la derecha de other (muro compartido o contacto directo)
+      if ((Math.abs(mLeft - (oRight + tPx)) <= SNAP_CONTACT_TOLERANCE || Math.abs(mLeft - oRight) <= SNAP_CONTACT_TOLERANCE) && overlapY > 10) {
         contactFound = { sourceWall: 'west', targetWall: 'east' };
       }
-      // Contacto 2: movedRoom a la izquierda de other (movedRoom East toca other West)
-      else if (Math.abs(mRight - oLeft) <= SNAP_CONTACT_TOLERANCE && overlapY > 10) {
+      // Contacto 2: movedRoom a la izquierda de other (muro compartido o contacto directo)
+      else if ((Math.abs(mRight + tPx - oLeft) <= SNAP_CONTACT_TOLERANCE || Math.abs(mRight - oLeft) <= SNAP_CONTACT_TOLERANCE) && overlapY > 10) {
         contactFound = { sourceWall: 'east', targetWall: 'west' };
       }
-      // Contacto 3: movedRoom abajo de other (movedRoom North toca other South)
-      else if (Math.abs(mTop - oBottom) <= SNAP_CONTACT_TOLERANCE && overlapX > 10) {
+      // Contacto 3: movedRoom abajo de other (muro compartido o contacto directo)
+      else if ((Math.abs(mTop - (oBottom + tPx)) <= SNAP_CONTACT_TOLERANCE || Math.abs(mTop - oBottom) <= SNAP_CONTACT_TOLERANCE) && overlapX > 10) {
         contactFound = { sourceWall: 'north', targetWall: 'south' };
       }
-      // Contacto 4: movedRoom arriba de other (movedRoom South toca other North)
-      else if (Math.abs(mBottom - oTop) <= SNAP_CONTACT_TOLERANCE && overlapX > 10) {
+      // Contacto 4: movedRoom arriba de other (muro compartido o contacto directo)
+      else if ((Math.abs(mBottom + tPx - oTop) <= SNAP_CONTACT_TOLERANCE || Math.abs(mBottom - oTop) <= SNAP_CONTACT_TOLERANCE) && overlapX > 10) {
         contactFound = { sourceWall: 'south', targetWall: 'north' };
       }
 
@@ -2021,10 +2022,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       const oLeft = other.canvasPosition.x;
       const oTop = other.canvasPosition.y;
 
-      if (wall === 'east' && Math.abs(rLeft + rW - oLeft) <= 15) neighborId = other.id;
-      else if (wall === 'west' && Math.abs(rLeft - (oLeft + oW)) <= 15) neighborId = other.id;
-      else if (wall === 'south' && Math.abs(rTop + rH - oTop) <= 15) neighborId = other.id;
-      else if (wall === 'north' && Math.abs(rTop - (oTop + oH)) <= 15) neighborId = other.id;
+      const tPx = metersToPixels(wallThicknessMeters);
+      if (wall === 'east' && (Math.abs(rLeft + rW + tPx - oLeft) <= 18 || Math.abs(rLeft + rW - oLeft) <= 18)) neighborId = other.id;
+      else if (wall === 'west' && (Math.abs(rLeft - (oLeft + oW + tPx)) <= 18 || Math.abs(rLeft - (oLeft + oW)) <= 18)) neighborId = other.id;
+      else if (wall === 'south' && (Math.abs(rTop + rH + tPx - oTop) <= 18 || Math.abs(rTop + rH - oTop) <= 18)) neighborId = other.id;
+      else if (wall === 'north' && (Math.abs(rTop - (oTop + oH + tPx)) <= 18 || Math.abs(rTop - (oTop + oH)) <= 18)) neighborId = other.id;
       if (neighborId) break;
     }
 

@@ -533,13 +533,14 @@ export function useSurveyViewModel() {
         rawPosition,
         rooms,
         connections,
-        snapThreshold
+        snapThreshold,
+        wallThicknessMeters
       );
 
       setSnapGuidesAction(snapResult.guidelines);
       return { x: snapResult.x, y: snapResult.y };
     },
-    [isSnapEnabled, rooms, connections, snapThreshold, setSnapGuidesAction]
+    [isSnapEnabled, rooms, connections, snapThreshold, wallThicknessMeters, setSnapGuidesAction]
   );
 
   const handleRoomDragEnd = useCallback(

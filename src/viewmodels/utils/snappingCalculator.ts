@@ -27,7 +27,8 @@ export function calculateMagneticSnapping(
   proposedPos: { x: number; y: number },
   allRooms: Room[],
   connections: LogicalConnection[] = [],
-  threshold: number = 18 // Umbral de atracción magnética en píxeles
+  threshold: number = 18, // Umbral de atracción magnética en píxeles
+  wallThicknessMeters: number = 0.10
 ): SnapResult {
   const draggedRoom = allRooms.find((r) => r.id === draggedRoomId);
   if (!draggedRoom) {
@@ -44,6 +45,9 @@ export function calculateMagneticSnapping(
   const draggedW = isNonMetric ? 180 : metersToPixels(draggedRoom.dimensions?.width || 3.0);
   const draggedH = isNonMetric ? 100 : metersToPixels(draggedRoom.dimensions?.length || 2.0);
 
+  const wallThicknessPx = metersToPixels(wallThicknessMeters);
+  const wallThicknessCm = Math.round(wallThicknessMeters * 100);
+
   let finalX = proposedPos.x;
   let finalY = proposedPos.y;
 
@@ -59,6 +63,7 @@ export function calculateMagneticSnapping(
   const otherRooms = allRooms.filter((r) => r.id !== draggedRoomId);
 
   // 1. PRIORIDAD MÁXIMA: Aristas Topológicas (Adyacencia Física Explícita en el Grafo)
+  // Cara interna de un ambiente encastra con la cara externa del muro del otro (la misma pared compartida)
   for (const conn of connections) {
     const isSource = conn.sourceRoomId === draggedRoomId;
     const isTarget = conn.targetRoomId === draggedRoomId;
@@ -81,88 +86,92 @@ export function calculateMagneticSnapping(
     const targetTop = target.canvasPosition.y;
     const targetBottom = target.canvasPosition.y + targetH;
 
-    const topoThreshold = threshold * 1.8; // Atracción magnética reforzada para ambientes unidos
+    const topoThreshold = threshold * 1.8;
 
-    // Encastre Horizontal (Este-Oeste)
+    // Encastre Horizontal (Este-Oeste): Dragged West con Target East
     if (myWall === 'west' && targetWall === 'east') {
-      const d = Math.abs(proposedPos.x - targetRight);
+      const snapTargetX = targetRight + wallThicknessPx;
+      const d = Math.abs(proposedPos.x - snapTargetX);
       if (d <= topoThreshold && d < minDeltaX) {
         minDeltaX = d;
-        finalX = targetRight;
+        finalX = snapTargetX;
         snappedX = true;
         bestXGuide = {
           id: `snap-topo-west-east-${target.id}`,
           orientation: 'vertical',
-          position: targetRight,
+          position: targetRight + wallThicknessPx / 2,
           start: Math.min(proposedPos.y, targetTop) - 40,
           end: Math.max(proposedPos.y + draggedH, targetBottom) + 40,
           targetRoomId: target.id,
           isTopologicalAdjacency: true,
           snapType: 'topological',
-          label: '🧱 Muro Compartido (E-O)'
+          label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
         };
       }
     } else if (myWall === 'east' && targetWall === 'west') {
-      const d = Math.abs(proposedPos.x + draggedW - targetLeft);
+      const snapTargetX = targetLeft - draggedW - wallThicknessPx;
+      const d = Math.abs(proposedPos.x - snapTargetX);
       if (d <= topoThreshold && d < minDeltaX) {
         minDeltaX = d;
-        finalX = targetLeft - draggedW;
+        finalX = snapTargetX;
         snappedX = true;
         bestXGuide = {
           id: `snap-topo-east-west-${target.id}`,
           orientation: 'vertical',
-          position: targetLeft,
+          position: targetLeft - wallThicknessPx / 2,
           start: Math.min(proposedPos.y, targetTop) - 40,
           end: Math.max(proposedPos.y + draggedH, targetBottom) + 40,
           targetRoomId: target.id,
           isTopologicalAdjacency: true,
           snapType: 'topological',
-          label: '🧱 Muro Compartido (O-E)'
+          label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
         };
       }
     }
 
-    // Encastre Vertical (Norte-Sur)
+    // Encastre Vertical (Norte-Sur): Dragged North con Target South
     if (myWall === 'north' && targetWall === 'south') {
-      const d = Math.abs(proposedPos.y - targetBottom);
+      const snapTargetY = targetBottom + wallThicknessPx;
+      const d = Math.abs(proposedPos.y - snapTargetY);
       if (d <= topoThreshold && d < minDeltaY) {
         minDeltaY = d;
-        finalY = targetBottom;
+        finalY = snapTargetY;
         snappedY = true;
         bestYGuide = {
           id: `snap-topo-north-south-${target.id}`,
           orientation: 'horizontal',
-          position: targetBottom,
+          position: targetBottom + wallThicknessPx / 2,
           start: Math.min(proposedPos.x, targetLeft) - 40,
           end: Math.max(proposedPos.x + draggedW, targetRight) + 40,
           targetRoomId: target.id,
           isTopologicalAdjacency: true,
           snapType: 'topological',
-          label: '🧱 Muro Compartido (N-S)'
+          label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
         };
       }
     } else if (myWall === 'south' && targetWall === 'north') {
-      const d = Math.abs(proposedPos.y + draggedH - targetTop);
+      const snapTargetY = targetTop - draggedH - wallThicknessPx;
+      const d = Math.abs(proposedPos.y - snapTargetY);
       if (d <= topoThreshold && d < minDeltaY) {
         minDeltaY = d;
-        finalY = targetTop - draggedH;
+        finalY = snapTargetY;
         snappedY = true;
         bestYGuide = {
           id: `snap-topo-south-north-${target.id}`,
           orientation: 'horizontal',
-          position: targetTop,
+          position: targetTop - wallThicknessPx / 2,
           start: Math.min(proposedPos.x, targetLeft) - 40,
           end: Math.max(proposedPos.x + draggedW, targetRight) + 40,
           targetRoomId: target.id,
           isTopologicalAdjacency: true,
           snapType: 'topological',
-          label: '🧱 Muro Compartido (S-N)'
+          label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
         };
       }
     }
   }
 
-  // 2. Atracción Geométrica y Proyecciones de Caras en Eje X
+  // 2. Atracción Geométrica General y Proyecciones en Eje X
   const draggedCenterX = proposedPos.x + draggedW / 2;
 
   for (const target of otherRooms) {
@@ -176,43 +185,47 @@ export function calculateMagneticSnapping(
     const yStart = Math.min(proposedPos.y, target.canvasPosition.y) - 60;
     const yEnd = Math.max(proposedPos.y + draggedH, target.canvasPosition.y + targetH) + 60;
 
-    // a. Contacto: Cara Oeste del arrastrado con Cara Este del objetivo
-    const dContactWestEast = Math.abs(proposedPos.x - targetRight);
+    // a. Contacto Muro Compartido: Cara Oeste del arrastrado con Cara Este del objetivo
+    // Cara interna del arrastrado a cara externa del objetivo (la misma pared)
+    const snapSharedEastX = targetRight + wallThicknessPx;
+    const dContactWestEast = Math.abs(proposedPos.x - snapSharedEastX);
     if (dContactWestEast < minDeltaX && dContactWestEast <= threshold) {
       minDeltaX = dContactWestEast;
-      finalX = targetRight;
+      finalX = snapSharedEastX;
       snappedX = true;
       bestXGuide = {
         id: `snap-x-contact-we-${target.id}`,
         orientation: 'vertical',
-        position: targetRight,
+        position: targetRight + wallThicknessPx / 2,
         start: yStart,
         end: yEnd,
         targetRoomId: target.id,
         snapType: 'contact_edge',
-        label: 'Alineación Cara Este/Oeste'
+        label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
       };
     }
 
-    // b. Contacto: Cara Este del arrastrado con Cara Oeste del objetivo
-    const dContactEastWest = Math.abs(proposedPos.x + draggedW - targetLeft);
+    // b. Contacto Muro Compartido: Cara Este del arrastrado con Cara Oeste del objetivo
+    // Cara interna del arrastrado a cara externa del objetivo (la misma pared)
+    const snapSharedWestX = targetLeft - draggedW - wallThicknessPx;
+    const dContactEastWest = Math.abs(proposedPos.x - snapSharedWestX);
     if (dContactEastWest < minDeltaX && dContactEastWest <= threshold) {
       minDeltaX = dContactEastWest;
-      finalX = targetLeft - draggedW;
+      finalX = snapSharedWestX;
       snappedX = true;
       bestXGuide = {
         id: `snap-x-contact-ew-${target.id}`,
         orientation: 'vertical',
-        position: targetLeft,
+        position: targetLeft - wallThicknessPx / 2,
         start: yStart,
         end: yEnd,
         targetRoomId: target.id,
         snapType: 'contact_edge',
-        label: 'Alineación Cara Oeste/Este'
+        label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
       };
     }
 
-    // c. Proyección Colineal: Cara Oeste con Cara Oeste (Alineación Izquierda)
+    // c. Proyección Colineal: Cara Oeste con Cara Oeste (Alineación de fachada izquierda)
     const dProjLeftLeft = Math.abs(proposedPos.x - targetLeft);
     if (dProjLeftLeft < minDeltaX && dProjLeftLeft <= threshold) {
       minDeltaX = dProjLeftLeft;
@@ -230,7 +243,7 @@ export function calculateMagneticSnapping(
       };
     }
 
-    // d. Proyección Colineal: Cara Este con Cara Este (Alineación Derecha)
+    // d. Proyección Colineal: Cara Este con Cara Este (Alineación de fachada derecha)
     const dProjRightRight = Math.abs(proposedPos.x + draggedW - targetRight);
     if (dProjRightRight < minDeltaX && dProjRightRight <= threshold) {
       minDeltaX = dProjRightRight;
@@ -248,7 +261,44 @@ export function calculateMagneticSnapping(
       };
     }
 
-    // e. Proyección de Eje Central (Centros alineados en X)
+    // e. Proyección Cara Interna a Cara Externa a distancia (eje vertical de muro)
+    const snapInnerWestToOuterEast = targetRight + wallThicknessPx;
+    const dProjInnerOuterE = Math.abs(proposedPos.x - snapInnerWestToOuterEast);
+    if (dProjInnerOuterE < minDeltaX && dProjInnerOuterE <= threshold) {
+      minDeltaX = dProjInnerOuterE;
+      finalX = snapInnerWestToOuterEast;
+      snappedX = true;
+      bestXGuide = {
+        id: `snap-x-proj-inner-outer-e-${target.id}`,
+        orientation: 'vertical',
+        position: snapInnerWestToOuterEast,
+        start: yStart,
+        end: yEnd,
+        targetRoomId: target.id,
+        snapType: 'projection_face',
+        label: 'Proyección Cara Externa E'
+      };
+    }
+
+    const snapInnerEastToOuterWest = targetLeft - draggedW - wallThicknessPx;
+    const dProjInnerOuterW = Math.abs(proposedPos.x - snapInnerEastToOuterWest);
+    if (dProjInnerOuterW < minDeltaX && dProjInnerOuterW <= threshold) {
+      minDeltaX = dProjInnerOuterW;
+      finalX = snapInnerEastToOuterWest;
+      snappedX = true;
+      bestXGuide = {
+        id: `snap-x-proj-inner-outer-w-${target.id}`,
+        orientation: 'vertical',
+        position: targetLeft - wallThicknessPx,
+        start: yStart,
+        end: yEnd,
+        targetRoomId: target.id,
+        snapType: 'projection_face',
+        label: 'Proyección Cara Externa O'
+      };
+    }
+
+    // f. Proyección de Eje Central (Centros alineados en X)
     const dProjCenterX = Math.abs(draggedCenterX - targetCenterX);
     if (dProjCenterX < minDeltaX && dProjCenterX <= threshold * 0.85) {
       minDeltaX = dProjCenterX;
@@ -267,7 +317,7 @@ export function calculateMagneticSnapping(
     }
   }
 
-  // 3. Atracción Geométrica y Proyecciones de Caras en Eje Y
+  // 3. Atracción Geométrica General y Proyecciones en Eje Y
   const draggedCenterY = proposedPos.y + draggedH / 2;
 
   for (const target of otherRooms) {
@@ -281,43 +331,47 @@ export function calculateMagneticSnapping(
     const xStart = Math.min(proposedPos.x, target.canvasPosition.x) - 60;
     const xEnd = Math.max(proposedPos.x + draggedW, target.canvasPosition.x + targetW) + 60;
 
-    // a. Contacto: Cara Norte del arrastrado con Cara Sur del objetivo
-    const dContactNorthSouth = Math.abs(proposedPos.y - targetBottom);
+    // a. Contacto Muro Compartido: Cara Norte del arrastrado con Cara Sur del objetivo
+    // Cara interna del arrastrado a cara externa del objetivo (la misma pared)
+    const snapSharedSouthY = targetBottom + wallThicknessPx;
+    const dContactNorthSouth = Math.abs(proposedPos.y - snapSharedSouthY);
     if (dContactNorthSouth < minDeltaY && dContactNorthSouth <= threshold) {
       minDeltaY = dContactNorthSouth;
-      finalY = targetBottom;
+      finalY = snapSharedSouthY;
       snappedY = true;
       bestYGuide = {
         id: `snap-y-contact-ns-${target.id}`,
         orientation: 'horizontal',
-        position: targetBottom,
+        position: targetBottom + wallThicknessPx / 2,
         start: xStart,
         end: xEnd,
         targetRoomId: target.id,
         snapType: 'contact_edge',
-        label: 'Alineación Cara Sur/Norte'
+        label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
       };
     }
 
-    // b. Contacto: Cara Sur del arrastrado con Cara Norte del objetivo
-    const dContactSouthNorth = Math.abs(proposedPos.y + draggedH - targetTop);
+    // b. Contacto Muro Compartido: Cara Sur del arrastrado con Cara Norte del objetivo
+    // Cara interna del arrastrado a cara externa del objetivo (la misma pared)
+    const snapSharedNorthY = targetTop - draggedH - wallThicknessPx;
+    const dContactSouthNorth = Math.abs(proposedPos.y - snapSharedNorthY);
     if (dContactSouthNorth < minDeltaY && dContactSouthNorth <= threshold) {
       minDeltaY = dContactSouthNorth;
-      finalY = targetTop - draggedH;
+      finalY = snapSharedNorthY;
       snappedY = true;
       bestYGuide = {
         id: `snap-y-contact-sn-${target.id}`,
         orientation: 'horizontal',
-        position: targetTop,
+        position: targetTop - wallThicknessPx / 2,
         start: xStart,
         end: xEnd,
         targetRoomId: target.id,
         snapType: 'contact_edge',
-        label: 'Alineación Cara Norte/Sur'
+        label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
       };
     }
 
-    // c. Proyección Colineal: Cara Norte con Cara Norte (Alineación Superior)
+    // c. Proyección Colineal: Cara Norte con Cara Norte (Fachada exterior norte alineada)
     const dProjTopTop = Math.abs(proposedPos.y - targetTop);
     if (dProjTopTop < minDeltaY && dProjTopTop <= threshold) {
       minDeltaY = dProjTopTop;
@@ -335,7 +389,7 @@ export function calculateMagneticSnapping(
       };
     }
 
-    // d. Proyección Colineal: Cara Sur con Cara Sur (Alineación Inferior)
+    // d. Proyección Colineal: Cara Sur con Cara Sur (Fachada exterior sur alineada)
     const dProjBottomBottom = Math.abs(proposedPos.y + draggedH - targetBottom);
     if (dProjBottomBottom < minDeltaY && dProjBottomBottom <= threshold) {
       minDeltaY = dProjBottomBottom;
@@ -353,7 +407,44 @@ export function calculateMagneticSnapping(
       };
     }
 
-    // e. Proyección de Eje Central (Centros alineados en Y)
+    // e. Proyección Cara Interna a Cara Externa a distancia
+    const snapInnerNorthToOuterSouth = targetBottom + wallThicknessPx;
+    const dProjInnerOuterS = Math.abs(proposedPos.y - snapInnerNorthToOuterSouth);
+    if (dProjInnerOuterS < minDeltaY && dProjInnerOuterS <= threshold) {
+      minDeltaY = dProjInnerOuterS;
+      finalY = snapInnerNorthToOuterSouth;
+      snappedY = true;
+      bestYGuide = {
+        id: `snap-y-proj-inner-outer-s-${target.id}`,
+        orientation: 'horizontal',
+        position: snapInnerNorthToOuterSouth,
+        start: xStart,
+        end: xEnd,
+        targetRoomId: target.id,
+        snapType: 'projection_face',
+        label: 'Proyección Cara Externa S'
+      };
+    }
+
+    const snapInnerSouthToOuterNorth = targetTop - draggedH - wallThicknessPx;
+    const dProjInnerOuterN = Math.abs(proposedPos.y - snapInnerSouthToOuterNorth);
+    if (dProjInnerOuterN < minDeltaY && dProjInnerOuterN <= threshold) {
+      minDeltaY = dProjInnerOuterN;
+      finalY = snapInnerSouthToOuterNorth;
+      snappedY = true;
+      bestYGuide = {
+        id: `snap-y-proj-inner-outer-n-${target.id}`,
+        orientation: 'horizontal',
+        position: targetTop - wallThicknessPx,
+        start: xStart,
+        end: xEnd,
+        targetRoomId: target.id,
+        snapType: 'projection_face',
+        label: 'Proyección Cara Externa N'
+      };
+    }
+
+    // f. Proyección de Eje Central (Centros alineados en Y)
     const dProjCenterY = Math.abs(draggedCenterY - targetCenterY);
     if (dProjCenterY < minDeltaY && dProjCenterY <= threshold * 0.85) {
       minDeltaY = dProjCenterY;
