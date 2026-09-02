@@ -214,7 +214,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
           }}
           sx={{ py: 0.2, px: 1, fontSize: '0.72rem', textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
         >
-          + Agregar
+          Agregar
         </Button>
       </Box>
 

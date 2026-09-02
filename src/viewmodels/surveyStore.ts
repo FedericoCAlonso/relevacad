@@ -251,7 +251,7 @@ const INITIAL_ROOMS: Room[] = [
       height: 2.6
     },
     canvasPosition: {
-      x: 270,
+      x: 275,
       y: 80
     },
     topologyPosition: {
@@ -342,8 +342,8 @@ const INITIAL_ROOMS: Room[] = [
       height: 2.6
     },
     canvasPosition: {
-      x: 270,
-      y: 270
+      x: 275,
+      y: 275
     },
     topologyPosition: {
       x: 380,
@@ -378,8 +378,8 @@ const INITIAL_ROOMS: Room[] = [
       height: 2.4
     },
     canvasPosition: {
-      x: 360,
-      y: 270
+      x: 355,
+      y: 275
     },
     topologyPosition: {
       x: 720,
@@ -425,8 +425,8 @@ const INITIAL_ROOMS: Room[] = [
       height: 2.6
     },
     canvasPosition: {
-      x: 270,
-      y: 345
+      x: 275,
+      y: 355
     },
     topologyPosition: {
       x: 1060,
@@ -462,7 +462,7 @@ const INITIAL_ROOMS: Room[] = [
     },
     canvasPosition: {
       x: 80,
-      y: 580
+      y: 585
     },
     topologyPosition: {
       x: 380,
