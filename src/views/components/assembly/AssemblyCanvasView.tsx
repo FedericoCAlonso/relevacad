@@ -39,6 +39,7 @@ import { useSurveyViewModel } from '@/viewmodels';
 import { metersToPixels, PIXELS_PER_METER } from '@/viewmodels/utils/geometryUtils';
 import { CONNECTION_TYPE_CATALOG } from '@/models/GraphModel';
 import { RoomAssemblyShape } from './RoomAssemblyShape';
+import { IncrementalSurveyAssistant } from './IncrementalSurveyAssistant';
 
 export const AssemblyCanvasView: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -64,7 +65,10 @@ export const AssemblyCanvasView: React.FC = () => {
     handleRoomDrag,
     handleRoomDragEnd,
     wallThicknessMeters,
-    setWallThickness
+    setWallThickness,
+    isAssistantOpen,
+    toggleAssistantOpen,
+    questionsQueue
   } = useSurveyViewModel();
 
   const wallThicknessPx = useMemo(
@@ -218,6 +222,19 @@ export const AssemblyCanvasView: React.FC = () => {
               onClick={() => autoAssembleRooms()}
               clickable
               variant="filled"
+              sx={{ fontWeight: 700, fontSize: '0.75rem', height: 28 }}
+            />
+          </Tooltip>
+
+          {/* 🤖 Botón Asistente de Relevamiento Incremental */}
+          <Tooltip title={isAssistantOpen ? 'Ocultar Asistente de Relevamiento' : 'Abrir Asistente de Relevamiento'}>
+            <Chip
+              label={`Asistente ${questionsQueue.length > 0 ? `(${questionsQueue.length})` : '✓'}`}
+              color={questionsQueue.length > 0 ? 'warning' : 'success'}
+              size="small"
+              onClick={() => toggleAssistantOpen()}
+              clickable
+              variant={isAssistantOpen ? 'filled' : 'outlined'}
               sx={{ fontWeight: 700, fontSize: '0.75rem', height: 28 }}
             />
           </Tooltip>
@@ -388,6 +405,9 @@ export const AssemblyCanvasView: React.FC = () => {
             ))}
         </Layer>
       </Stage>
+
+      {/* 🤖 Asistente de Relevamiento Incremental Móvil */}
+      <IncrementalSurveyAssistant />
     </Box>
   );
 };

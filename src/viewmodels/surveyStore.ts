@@ -24,6 +24,7 @@ import {
 } from '@/models/ElectricalGraphModel';
 import { SnapGuideLine } from './utils/snappingCalculator';
 import { solveAutoAssembly } from './utils/autoAssemblySolver';
+import { SurveyQuestion } from '@/models/IncrementalSurveyModel';
 
 export type SurveyPhase = 'topology' | 'parametrization' | 'assembly';
 export type TopologyLayerMode = 'architectural' | 'electrical' | 'unified';
@@ -38,6 +39,10 @@ export interface SurveyState {
 
   // Parámetros Constructivos
   wallThicknessMeters: number; // Espesor de muros (default 0.10m = 10cm)
+
+  // Asistente de Relevamiento Incremental
+  acceptableErrorThresholdMeters: number; // Umbral de tolerancia de error (default: 0.05m = 5cm)
+  isAssistantOpen: boolean;
 
   // Estado del Modelo Eléctrico (Traza)
   electricalNodes: NodoElectrico[];
@@ -113,6 +118,11 @@ export interface SurveyState {
   autoAssembleRooms: () => void;
   setSnapGuides: (guides: SnapGuideLine[]) => void;
   toggleSnap: (enabled?: boolean) => void;
+
+  // Asistente de Relevamiento Incremental
+  setAcceptableErrorThreshold: (thresholdMeters: number) => void;
+  toggleAssistantOpen: (open?: boolean) => void;
+  answerIncrementalQuestion: (question: SurveyQuestion, value: number) => void;
 
   // Utilidades
   loadSampleData: () => void;
@@ -1210,7 +1220,9 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
   electricalTramos: INITIAL_ELECTRICAL_TRAMOS,
   selectedElectricalNodeId: null,
   selectedTramoId: null,
-  topologyLayer: 'architectural', // Default limpio: solo arquitectura
+  topologyLayer: 'architectural',
+  acceptableErrorThresholdMeters: 0.05,
+  isAssistantOpen: false,
 
   isSnapEnabled: true,
   snapThreshold: 15,
@@ -1726,6 +1738,57 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       isSnapEnabled: enabled !== undefined ? enabled : !state.isSnapEnabled
     })),
 
+  // Asistente de Relevamiento Incremental
+  setAcceptableErrorThreshold: (thresholdMeters) =>
+    set({ acceptableErrorThresholdMeters: thresholdMeters }),
+
+  toggleAssistantOpen: (open) =>
+    set((state) => ({
+      isAssistantOpen: open !== undefined ? open : !state.isAssistantOpen
+    })),
+
+  answerIncrementalQuestion: (question, value) => {
+    if (question.targetType === 'edge_measure') {
+      const conn = get().connections.find((c) => c.id === question.targetId);
+      if (conn) {
+        get().updateConnection(conn.id, {
+          opening: {
+            openingType: conn.type,
+            widthMeters: Number(value.toFixed(2)),
+            heightMeters: conn.opening?.heightMeters || 2.05,
+            sillHeightMeters: conn.opening?.sillHeightMeters || 0,
+            swingDirection: conn.opening?.swingDirection || 'right'
+          }
+        });
+      }
+    } else if (question.targetType === 'room_width') {
+      const room = get().rooms.find((r) => r.id === question.targetId);
+      if (room) {
+        get().updateRoom(room.id, {
+          dimensions: {
+            ...room.dimensions,
+            width: Number(value.toFixed(2)),
+            widthLocked: true
+          }
+        });
+      }
+    } else if (question.targetType === 'room_length') {
+      const room = get().rooms.find((r) => r.id === question.targetId);
+      if (room) {
+        get().updateRoom(room.id, {
+          dimensions: {
+            ...room.dimensions,
+            length: Number(value.toFixed(2)),
+            lengthLocked: true
+          }
+        });
+      }
+    }
+
+    // Auto-ensamblar inmediatamente con la nueva restricción geométrica confirmada
+    get().autoAssembleRooms();
+  },
+
   loadSampleData: () => {
     const assembledRooms = solveAutoAssembly(INITIAL_ROOMS, INITIAL_CONNECTIONS);
     set({
@@ -1738,6 +1801,8 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       selectedElectricalNodeId: null,
       selectedTramoId: null,
       wallThicknessMeters: 0.10,
+      acceptableErrorThresholdMeters: 0.05,
+      isAssistantOpen: false,
       topologyLayer: 'architectural'
     });
   },
@@ -1752,6 +1817,8 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       selectedConnectionId: null,
       selectedElectricalNodeId: null,
       selectedTramoId: null,
+      acceptableErrorThresholdMeters: 0.05,
+      isAssistantOpen: false,
       activeSnapGuides: []
     });
   }

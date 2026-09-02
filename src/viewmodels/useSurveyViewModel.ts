@@ -23,6 +23,8 @@ import {
 } from '@/models/ElectricalGraphModel';
 import { ElectricalAssetType, ELECTRICAL_ASSET_CATALOG } from '@/models/ElectricalTypes';
 import { calculateMagneticSnapping } from './utils/snappingCalculator';
+import { solveGeometricConstraints } from './utils/geometricConstraintSolver';
+import { generatePrioritizedQuestions } from './utils/surveyQuestionPriorityEngine';
 
 export function useSurveyViewModel() {
   const rooms = useSurveyStore((state) => state.rooms);
@@ -88,7 +90,32 @@ export function useSurveyViewModel() {
   const loadSampleDataAction = useSurveyStore((state) => state.loadSampleData);
   const resetProjectAction = useSurveyStore((state) => state.resetProject);
 
+  // Asistente de Relevamiento Incremental
+  const acceptableErrorThresholdMeters = useSurveyStore((state) => state.acceptableErrorThresholdMeters);
+  const isAssistantOpen = useSurveyStore((state) => state.isAssistantOpen);
+  const setAcceptableErrorThresholdAction = useSurveyStore((state) => state.setAcceptableErrorThreshold);
+  const toggleAssistantOpenAction = useSurveyStore((state) => state.toggleAssistantOpen);
+  const answerIncrementalQuestionAction = useSurveyStore((state) => state.answerIncrementalQuestion);
+
   // --- COMPUTED PROPERTIES (Propiedades Derivadas) ---
+
+  // 🎯 SOLVER DE MÍNIMOS CUADRADOS & ASISTENTE INCREMENTAL
+  const solverResult = useMemo(() => {
+    const res = solveGeometricConstraints(rooms, connections, {
+      acceptableErrorThresholdMeters
+    });
+    const prioritizedQuestions = generatePrioritizedQuestions(
+      rooms,
+      connections,
+      res,
+      acceptableErrorThresholdMeters
+    );
+    res.activeQuestions = prioritizedQuestions;
+    return res;
+  }, [rooms, connections, acceptableErrorThresholdMeters]);
+
+  const activeQuestion = solverResult.activeQuestions[0] || null;
+  const questionsQueue = solverResult.activeQuestions;
 
   const selectedRoom = useMemo(() => {
     return rooms.find((r) => r.id === selectedRoomId) || null;
@@ -570,6 +597,16 @@ export function useSurveyViewModel() {
     autoAssembleRooms: autoAssembleRoomsAction,
     handleRoomDrag,
     handleRoomDragEnd,
+
+    // Asistente de Relevamiento Incremental
+    solverResult,
+    activeQuestion,
+    questionsQueue,
+    acceptableErrorThresholdMeters,
+    isAssistantOpen,
+    setAcceptableErrorThreshold: setAcceptableErrorThresholdAction,
+    toggleAssistantOpen: toggleAssistantOpenAction,
+    answerIncrementalQuestion: answerIncrementalQuestionAction,
 
     // Espesor de Muros
     wallThicknessMeters,
