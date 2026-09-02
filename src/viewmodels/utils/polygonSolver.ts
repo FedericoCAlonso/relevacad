@@ -126,8 +126,6 @@ export function calculateRoomPolygon(room: Room): Point2D[] {
   // Helper para subdividir un segmento con sus quiebres
   const northBreaks = breaks.filter((b) => b.wall === 'north').sort((a, b) => a.startOffsetMeters - b.startOffsetMeters);
   const eastBreaks = breaks.filter((b) => b.wall === 'east').sort((a, b) => a.startOffsetMeters - b.startOffsetMeters);
-  const southBreaks = breaks.filter((b) => b.wall === 'south').sort((a, b) => a.startOffsetMeters - b.startOffsetMeters);
-  const westBreaks = breaks.filter((b) => b.wall === 'west').sort((a, b) => a.startOffsetMeters - b.startOffsetMeters);
 
   const poly: Point2D[] = [];
 
@@ -157,28 +155,34 @@ export function calculateRoomPolygon(room: Room): Point2D[] {
   poly.push({ x: LN, y: LE });
 
   // 3. Pared Sur (V2 a V3, horizontal de X=LS a X=0 en Y=LE/LO)
-  for (const b of southBreaks) {
-    // Offset medido desde esquina Este (origen X=LS) hacia Oeste
+  // Como caminamos de Este (X=LS) hacia Oeste (X=0), procesamos los quiebres de mayor a menor X
+  const southBreaksDesc = [...breaks.filter((b) => b.wall === 'south')].sort(
+    (a, b) => b.startOffsetMeters - a.startOffsetMeters
+  );
+  for (const b of southBreaksDesc) {
     const s = Math.max(0, Math.min(LS, b.startOffsetMeters));
     const e = Math.max(s, Math.min(LS, s + b.widthMeters));
     const d = b.depthMeters; // + hacia afuera (+Y), - hacia adentro (-Y)
-    poly.push({ x: LS - s, y: LE });
-    poly.push({ x: LS - s, y: LE + d });
-    poly.push({ x: LS - e, y: LE + d });
-    poly.push({ x: LS - e, y: LE });
+    poly.push({ x: e, y: LE });
+    poly.push({ x: e, y: LE + d });
+    poly.push({ x: s, y: LE + d });
+    poly.push({ x: s, y: LE });
   }
   poly.push({ x: 0, y: LO });
 
   // 4. Pared Oeste (V3 a V0, vertical de Y=LO a Y=0 en X=0)
-  for (const b of westBreaks) {
-    // Offset medido desde esquina Sur (Y=LO) hacia Norte (Y=0)
+  // Como caminamos de Sur (Y=LO) hacia Norte (Y=0), procesamos los quiebres de mayor a menor Y
+  const westBreaksDesc = [...breaks.filter((b) => b.wall === 'west')].sort(
+    (a, b) => b.startOffsetMeters - a.startOffsetMeters
+  );
+  for (const b of westBreaksDesc) {
     const s = Math.max(0, Math.min(LO, b.startOffsetMeters));
     const e = Math.max(s, Math.min(LO, s + b.widthMeters));
     const d = b.depthMeters; // + hacia afuera (-X), - hacia adentro (+X)
-    poly.push({ x: 0, y: LO - s });
-    poly.push({ x: -d, y: LO - s });
-    poly.push({ x: -d, y: LO - e });
-    poly.push({ x: 0, y: LO - e });
+    poly.push({ x: 0, y: e });
+    poly.push({ x: -d, y: e });
+    poly.push({ x: -d, y: s });
+    poly.push({ x: 0, y: s });
   }
 
   // Filtrar vértices duplicados o colineales redundantes consecutivos

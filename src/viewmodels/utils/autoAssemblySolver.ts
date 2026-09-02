@@ -130,10 +130,6 @@ export function applyInvasionsToRoomGeometries(
     }
 
     const breakGlobalStart = sGlobal + offsetInShared;
-    const invaderStartLocal = Math.max(
-      0,
-      Math.min(invaderWallLen - breakWidth, breakGlobalStart - invaderWallOrigin)
-    );
     const invadedStartLocal = Math.max(
       0,
       Math.min(invadedWallLen - breakWidth, breakGlobalStart - invadedWallOrigin)
@@ -153,17 +149,9 @@ export function applyInvasionsToRoomGeometries(
       }
     }
 
-    // Quiebre en el recinto INVASOR (+depth = extiende hacia afuera)
-    const invaderBreak: WallBreak = {
-      id: `wb-invader-${conn.id}`,
-      wall: invaderWall,
-      startOffsetMeters: Number(invaderStartLocal.toFixed(2)),
-      widthMeters: Number(breakWidth.toFixed(2)),
-      depthMeters: Number(depth.toFixed(2)),
-      label: `Invasión hacia ${invadedRoom.name}`
-    };
-
-    // Quiebre en el recinto INVADIDO (-depth = retranqueo / hueco interior)
+    // Quiebre en el recinto INVADIDO (-depth = retranqueo / hueco interior cedido al que avanza)
+    // El recinto que avanza (invasor) ya tiene su cuerpo geométrico adelantado en el plano,
+    // por lo que no se le suma una segunda protuberancia ficticia.
     const invadedBreak: WallBreak = {
       id: `wb-invaded-${conn.id}`,
       wall: invadedWall,
@@ -173,7 +161,6 @@ export function applyInvasionsToRoomGeometries(
       label: `Cedido a ${invaderRoom.name}`
     };
 
-    breaksByRoom.get(invaderId)?.push(invaderBreak);
     breaksByRoom.get(invadedId)?.push(invadedBreak);
   }
 

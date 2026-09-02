@@ -295,9 +295,8 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
 
     // 1. Si la pared no tiene aberturas (pared ciega o compartida sólida sin vanos)
     if (intervals.length === 0) {
-      const wallHasBreak = (room.geometry?.wallBreaks || []).some((b) => b.wall === wall);
-      if (wallHasBreak) {
-        // La pared con quiebre es renderizada por el polígono perimetral con quiebres en Z
+      if (hasBreaks) {
+        // En recintos con quiebres, el polígono perimetral ya dibuja las paredes exactas sin barras rectas superpuestas
         return null;
       }
 
@@ -350,7 +349,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
 
     intervals.forEach((interval, idx) => {
       // Tramo de pared sólido antes de esta abertura (mocheta)
-      if (interval.startPx - currentPos > 2) {
+      if (!hasBreaks && interval.startPx - currentPos > 2) {
         const segLen = interval.startPx - currentPos;
         if (isHoriz) {
           const yPos = wall === 'north' ? -wallThickness : roomLengthPx;
@@ -412,7 +411,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     });
 
     // Tramo de pared sólido final después de la última abertura (mocheta final)
-    if (wallLengthPx - currentPos > 2) {
+    if (!hasBreaks && wallLengthPx - currentPos > 2) {
       const segLen = wallLengthPx - currentPos;
       if (isHoriz) {
         const yPos = wall === 'north' ? -wallThickness : roomLengthPx;

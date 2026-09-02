@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Stage, Layer, Line, Group, Text, Circle } from 'react-konva';
+import { Stage, Layer, Line, Group, Text, Rect } from 'react-konva';
 import {
   Box,
   Typography,
@@ -35,9 +35,7 @@ import {
   ViewInAr as WallIcon,
   AccountTree as TopologyLinesIcon,
   Architecture as ArchPlanIcon,
-  Tune as TuneIcon,
-  Add as AddIcon,
-  Close as CloseIcon
+  Add as AddIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
 import { useSurveyStore } from '@/viewmodels/surveyStore';
@@ -610,6 +608,40 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
             />
           </Tooltip>
 
+          {/* Estado y accesos directos al ambiente seleccionado */}
+          {selectedRoom && (
+            <>
+              <Box sx={{ height: 18, width: 1, bgcolor: '#cbd5e1' }} />
+              <Chip
+                label={`🏠 ${selectedRoom.name}`}
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ fontWeight: 700, fontSize: '0.74rem', height: 28 }}
+              />
+              <Tooltip title="Editar nombre o propiedades del ambiente">
+                <Chip
+                  label="⚙️ Propiedades"
+                  size="small"
+                  onClick={() => setDetailRoomId(selectedRoom.id)}
+                  clickable
+                  variant="outlined"
+                  sx={{ fontWeight: 600, fontSize: '0.74rem', height: 28 }}
+                />
+              </Tooltip>
+              <Tooltip title="Gestionar aberturas y muro">
+                <Chip
+                  label="🚪 Aberturas"
+                  size="small"
+                  onClick={() => handleWallClick(selectedRoom.id, 'north')}
+                  clickable
+                  variant="outlined"
+                  sx={{ fontWeight: 600, fontSize: '0.74rem', height: 28 }}
+                />
+              </Tooltip>
+            </>
+          )}
+
           {/* Controles de Zoom y Vista en Desktop */}
           {!isMobile && (
             <>
@@ -780,17 +812,17 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
           ))}
         </Layer>
 
-        {/* Capa 3.5: Tiradores de Cota y Redimensionamiento con Snap Magnético */}
+        {/* Capa 3.5: Tiradores de Pared Completa con Snap Magnético (Arrastrar desde la pared) */}
         {selectedRoom && isMetricRoom(selectedRoom) && (
           <Layer>
-            {/* Tirador Este (Redimensionar Ancho con Snap) */}
+            {/* 🧱 Pared Este: Tocar y arrastrar la pared derecha para cambiar ancho con snap */}
             <Group
               x={selectedRoom.canvasPosition.x + selectedRoomWidthPx}
-              y={selectedRoom.canvasPosition.y + selectedRoomLengthPx / 2}
+              y={selectedRoom.canvasPosition.y}
               draggable
               dragBoundFunc={(pos) => ({
                 x: Math.max(selectedRoom.canvasPosition.x + 30, pos.x),
-                y: selectedRoom.canvasPosition.y + selectedRoomLengthPx / 2
+                y: selectedRoom.canvasPosition.y
               })}
               onMouseDown={(e) => { e.cancelBubble = true; }}
               onTouchStart={(e) => { e.cancelBubble = true; }}
@@ -800,35 +832,48 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
               onDragMove={handleResizeWidthDragMove}
               onDragEnd={handleResizeWidthDragEnd}
             >
-              {/* Zona de contacto amplia para dedos en celular (48px de diámetro) */}
-              <Circle radius={isMobile ? 24 : 16} fill="transparent" />
-              <Circle
-                radius={isMobile ? 13 : 10}
+              {/* Zona de captura táctil a lo largo de toda la pared Este (36px de ancho) */}
+              <Rect x={-18} y={0} width={36} height={selectedRoomLengthPx} fill="transparent" />
+              {/* Resaltado visual azul de la pared Este interactiva */}
+              <Rect
+                x={-3}
+                y={0}
+                width={6}
+                height={selectedRoomLengthPx}
                 fill="#0284c7"
-                stroke="#ffffff"
-                strokeWidth={2.5}
+                opacity={0.85}
+                cornerRadius={3}
+              />
+              {/* Pestaña central de agarre con icono */}
+              <Rect
+                x={-14}
+                y={selectedRoomLengthPx / 2 - 16}
+                width={28}
+                height={32}
+                fill="#0284c7"
+                cornerRadius={14}
                 shadowColor="#0284c7"
-                shadowBlur={10}
-                shadowOpacity={0.7}
+                shadowBlur={8}
+                shadowOpacity={0.6}
               />
               <Text
                 text="↔"
                 x={-6}
-                y={-7}
-                fontSize={isMobile ? 13 : 10}
+                y={selectedRoomLengthPx / 2 - 6}
+                fontSize={12}
                 fontStyle="bold"
                 fill="#ffffff"
                 listening={false}
               />
             </Group>
 
-            {/* Tirador Sur (Redimensionar Longitud con Snap) */}
+            {/* 🧱 Pared Sur: Tocar y arrastrar la pared inferior para cambiar longitud con snap */}
             <Group
-              x={selectedRoom.canvasPosition.x + selectedRoomWidthPx / 2}
+              x={selectedRoom.canvasPosition.x}
               y={selectedRoom.canvasPosition.y + selectedRoomLengthPx}
               draggable
               dragBoundFunc={(pos) => ({
-                x: selectedRoom.canvasPosition.x + selectedRoomWidthPx / 2,
+                x: selectedRoom.canvasPosition.x,
                 y: Math.max(selectedRoom.canvasPosition.y + 30, pos.y)
               })}
               onMouseDown={(e) => { e.cancelBubble = true; }}
@@ -839,22 +884,35 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
               onDragMove={handleResizeLengthDragMove}
               onDragEnd={handleResizeLengthDragEnd}
             >
-              {/* Zona de contacto amplia para dedos en celular (48px de diámetro) */}
-              <Circle radius={isMobile ? 24 : 16} fill="transparent" />
-              <Circle
-                radius={isMobile ? 13 : 10}
+              {/* Zona de captura táctil a lo largo de toda la pared Sur (36px de alto) */}
+              <Rect x={0} y={-18} width={selectedRoomWidthPx} height={36} fill="transparent" />
+              {/* Resaltado visual azul de la pared Sur interactiva */}
+              <Rect
+                x={0}
+                y={-3}
+                width={selectedRoomWidthPx}
+                height={6}
                 fill="#0284c7"
-                stroke="#ffffff"
-                strokeWidth={2.5}
+                opacity={0.85}
+                cornerRadius={3}
+              />
+              {/* Pestaña central de agarre con icono */}
+              <Rect
+                x={selectedRoomWidthPx / 2 - 16}
+                y={-14}
+                width={32}
+                height={28}
+                fill="#0284c7"
+                cornerRadius={14}
                 shadowColor="#0284c7"
-                shadowBlur={10}
-                shadowOpacity={0.7}
+                shadowBlur={8}
+                shadowOpacity={0.6}
               />
               <Text
                 text="↕"
-                x={-4}
-                y={-7}
-                fontSize={isMobile ? 13 : 10}
+                x={selectedRoomWidthPx / 2 - 4}
+                y={-6}
+                fontSize={12}
                 fontStyle="bold"
                 fill="#ffffff"
                 listening={false}
@@ -1012,48 +1070,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         </Paper>
       )}
 
-      {/* 📐 Botón Flotante de Medidas del Ambiente Seleccionado */}
-      {selectedRoom && isMetricRoom(selectedRoom) && (
-        <Paper
-          elevation={4}
-          sx={{
-            position: 'absolute',
-            bottom: isMobile ? 74 : 20,
-            right: 14,
-            zIndex: 20,
-            py: 0.8,
-            px: 1.5,
-            borderRadius: 3,
-            bgcolor: '#ffffff',
-            border: '1.5px solid #00629e',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.2,
-            boxShadow: '0 8px 24px rgba(0,98,158,0.18)',
-            maxWidth: isMobile ? 'calc(100vw - 110px)' : undefined
-          }}
-        >
-          <Box sx={{ overflow: 'hidden' }}>
-            <Typography variant="body2" fontWeight={700} color="#0f172a" noWrap>
-              {selectedRoom.name}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block" noWrap>
-              {selectedRoom.dimensions.width}m × {selectedRoom.dimensions.length}m
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<TuneIcon />}
-            onClick={() => setDetailRoomId(selectedRoom.id)}
-            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 1.2, whiteSpace: 'nowrap' }}
-          >
-            Medidas
-          </Button>
-        </Paper>
-      )}
-
-      {/* 🧱 Inspector Modal de Muro y Aberturas al Tocar una Pared */}
+      {/* 🧱 Inspector Modal de Muro y Aberturas (Solo si el usuario pulsa Aberturas en la barra superior) */}
       {editingConnection && (
         <EditOpeningDialog
           open={Boolean(editingConnection)}
@@ -1062,102 +1079,13 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         />
       )}
 
-      {/* 📐 Diálogo de Dimensiones y Propiedades del Ambiente */}
+      {/* 📐 Diálogo de Dimensiones y Propiedades (Solo si el usuario pulsa Propiedades en la barra superior) */}
       {detailRoomId && (
         <RoomDetailDialog
           open={Boolean(detailRoomId)}
           onClose={() => setDetailRoomId(null)}
           roomId={detailRoomId}
         />
-      )}
-
-      {/* 🧭 Barra de Acción de Ambiente Seleccionado (Material 3 Mobile-First) */}
-      {selectedRoom && (
-        <Paper
-          elevation={4}
-          sx={{
-            position: 'absolute',
-            bottom: isMobile ? 14 : 22,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            py: 0.6,
-            px: 1.5,
-            borderRadius: 6,
-            bgcolor: 'rgba(255, 255, 255, 0.96)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid #0284c7',
-            boxShadow: '0 8px 24px rgba(2, 132, 199, 0.2)'
-          }}
-        >
-          <Typography
-            variant="body2"
-            fontWeight={700}
-            color="#0f172a"
-            sx={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}
-          >
-            🏠 {selectedRoom.name}
-          </Typography>
-
-          {isMetricRoom(selectedRoom) && (
-            <Chip
-              label={`${selectedRoom.dimensions.width} × ${selectedRoom.dimensions.length}m`}
-              size="small"
-              sx={{
-                height: 22,
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                bgcolor: '#e0f2fe',
-                color: '#0369a1'
-              }}
-            />
-          )}
-
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => handleWallClick(selectedRoom.id, 'north')}
-            sx={{
-              borderRadius: 4,
-              textTransform: 'none',
-              fontSize: '0.72rem',
-              fontWeight: 600,
-              height: 26,
-              px: 1,
-              borderColor: '#cbd5e1'
-            }}
-          >
-            🚪 Aberturas / Muro
-          </Button>
-
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => setDetailRoomId(selectedRoom.id)}
-            sx={{
-              borderRadius: 4,
-              textTransform: 'none',
-              fontSize: '0.72rem',
-              fontWeight: 600,
-              height: 26,
-              px: 1,
-              borderColor: '#cbd5e1'
-            }}
-          >
-            ⚙️ Datos
-          </Button>
-
-          <IconButton
-            size="small"
-            onClick={() => selectRoom(null as any)}
-            sx={{ p: 0.3, color: '#64748b' }}
-          >
-            <CloseIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Paper>
       )}
     </Box>
   );
