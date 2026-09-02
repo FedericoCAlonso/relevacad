@@ -4,8 +4,8 @@
  * para el asistente de relevamiento incremental "Croquizador".
  */
 
-import { Room } from '@/models/RoomModel';
-import { LogicalConnection } from '@/models/GraphModel';
+import { Room, isMetricRoom } from '@/models/RoomModel';
+import { LogicalConnection, getConnectionOpenings } from '@/models/GraphModel';
 import {
   SurveyQuestion,
   SolverResult,
@@ -28,7 +28,7 @@ export function generatePrioritizedQuestions(
     return [];
   }
 
-  const metricRooms = rooms.filter((r) => !r.isAccessPoint && !r.isTechnicalIsland);
+  const metricRooms = rooms.filter(isMetricRoom);
   const metricRoomIds = new Set(metricRooms.map((r) => r.id));
   const metricConns = connections.filter(
     (c) => metricRoomIds.has(c.sourceRoomId) && metricRoomIds.has(c.targetRoomId)
@@ -50,13 +50,20 @@ export function generatePrioritizedQuestions(
     });
   });
 
-  // 1. CANDIDATOS: Aristas con medida no confirmada o estimada
+  // 1. CANDIDATOS: Aristas con abertura real (NO tabiques ciegos / pared común)
   for (const conn of metricConns) {
     const sourceRoom = rooms.find((r) => r.id === conn.sourceRoomId);
     const targetRoom = rooms.find((r) => r.id === conn.targetRoomId);
     if (!sourceRoom || !targetRoom) continue;
 
-    const isConfirmed = Boolean(conn.opening && conn.opening.widthMeters > 0 && conn.opening.widthMeters !== 0.8);
+    // Si es una pared común ciega (sin aberturas), no se le pregunta por ancho de abertura
+    if (conn.type === 'pared_comun') continue;
+
+    const openings = getConnectionOpenings(conn);
+    if (openings.length === 0) continue;
+
+    const firstOp = openings[0];
+    const isConfirmed = Boolean(firstOp && firstOp.widthMeters > 0 && firstOp.widthMeters !== 0.8);
     const cyclesCount = cycleCountPerEdge.get(conn.id) || 0;
     const residualError = currentSolverResult.edgeResiduals.get(conn.id) || 0;
 
@@ -103,7 +110,7 @@ export function generatePrioritizedQuestions(
         rationale = `Nodo principal (${sourceRoom.name}) distribuye medidas a múltiples recintos`;
       }
 
-      const defaultVal = conn.opening?.widthMeters || (conn.type === 'pared_comun' ? 2.5 : 0.9);
+      const defaultVal = firstOp?.widthMeters || conn.opening?.widthMeters || 0.9;
 
       questions.push({
         id: `q-edge-${conn.id}`,

@@ -30,7 +30,8 @@ import {
   ElectricMeter as IslandIcon,
   Add as AddIcon,
   AutoAwesome as SparkleIcon,
-  Link as LinkIcon
+  Link as LinkIcon,
+  BorderLeft as BoundaryIcon
 } from '@mui/icons-material';
 import {
   ROOM_TYPE_CATALOG,
@@ -49,6 +50,7 @@ export interface RoomNodeData {
   tipoCubierta?: TipoCubierta;
   isAccessPoint?: boolean;
   isTechnicalIsland?: boolean;
+  isParcelBoundary?: boolean;
   isCommonArea?: boolean;
   dimensions: {
     width: number;
@@ -91,11 +93,12 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
 
   const isAccess = nodeData.isAccessPoint || roomTypeMeta.isAccess;
   const isTechnical = nodeData.isTechnicalIsland || roomTypeMeta.isTechnical;
-  const isNonMetric = isAccess || isTechnical || nodeData.isCommonArea;
+  const isBoundary = nodeData.isParcelBoundary || roomTypeMeta.isBoundary;
+  const isNonMetric = isAccess || isTechnical || isBoundary || nodeData.isCommonArea;
   const isElectricalMode = nodeData.topologyLayer === 'electrical' || nodeData.topologyLayer === 'unified';
   const showOpenings = nodeData.topologyLayer === 'architectural' || nodeData.topologyLayer === 'unified';
 
-  const handleColor = isAccess ? '#059669' : '#00629e';
+  const handleColor = isBoundary ? '#475569' : isAccess ? '#059669' : '#00629e';
 
   // Verificación de estado de Subárbol Iluminado
   const isRoomInActiveSubtree =
@@ -103,6 +106,7 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
     (nodeData.highlightedSubTreeRoomIds && nodeData.highlightedSubTreeRoomIds.includes(nodeData.roomId));
 
   const getHeaderIcon = () => {
+    if (isBoundary) return <BoundaryIcon fontSize="small" sx={{ color: '#475569' }} />;
     if (isTechnical) return <IslandIcon fontSize="small" sx={{ color: '#d97706' }} />;
     if (nodeData.roomType === 'access_street') return <EntryIcon fontSize="small" sx={{ color: '#059669' }} />;
     if (nodeData.roomType === 'access_palier') return <BuildingIcon fontSize="small" sx={{ color: '#059669' }} />;
@@ -113,6 +117,7 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
   };
 
   const getBadgeLabel = () => {
+    if (isBoundary) return '🧱 LÍMITE / MEDIANERA';
     if (isTechnical) return '⚡ ISLA TÉCNICA';
     if (isAccess) return '🟢 INGRESO';
     return roomTypeMeta.label;
@@ -258,7 +263,9 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
         sx={{
           borderRadius: 3.5,
           border: nodeData.isSelected
-            ? `2.5px solid ${isTechnical ? '#d97706' : isAccess ? '#059669' : '#00629e'}`
+            ? `2.5px solid ${isBoundary ? '#475569' : isTechnical ? '#d97706' : isAccess ? '#059669' : '#00629e'}`
+            : isBoundary
+            ? '1.5px dashed #64748b'
             : isTechnical
             ? '1.5px dashed #d97706'
             : isAccess
@@ -268,7 +275,9 @@ export const RoomNodeComponent = memo(({ data }: NodeProps) => {
             : isSemicubierto
             ? '1.5px solid #d97706'
             : '1px solid #d0d7de',
-          bgcolor: isTechnical
+          bgcolor: isBoundary
+            ? '#f8fafc'
+            : isTechnical
             ? '#fffbeb'
             : isAccess
             ? '#f0fdf4'

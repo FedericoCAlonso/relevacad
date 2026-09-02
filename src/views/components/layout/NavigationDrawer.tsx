@@ -32,26 +32,34 @@ import {
   PlaylistAddCheck as DemoIcon,
   DoorSliding as EntryIcon,
   ElectricMeter as IslandIcon,
-  DeleteOutline as DeleteIcon
+  DeleteOutline as DeleteIcon,
+  Folder as ProjectIcon,
+  Person as ClientIcon,
+  CloudDownload as ExportIcon,
+  Add as AddIcon,
+  BorderLeft as BoundaryIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
-import { ROOM_TYPE_CATALOG } from '@/models/RoomModel';
-import { AddMenuButton } from '../common/AddMenuButton';
+import { ROOM_TYPE_CATALOG, isParcelBoundaryNode } from '@/models/RoomModel';
 
 interface NavigationDrawerProps {
   open: boolean;
   onClose: () => void;
   onOpenAddRoom: (defaultTab?: 'interior' | 'access' | 'technical') => void;
-  onOpenAddElectricalNode?: () => void;
+  onOpenProjectManagement?: () => void;
 }
 
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   open,
   onClose,
   onOpenAddRoom,
-  onOpenAddElectricalNode
+  onOpenProjectManagement
 }) => {
   const {
+    currentProjectName,
+    clienteInfo,
+    lastSavedAt,
+    exportProjectToCotizadorJSON,
     rooms,
     selectedRoomId,
     selectRoom,
@@ -115,6 +123,39 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
         </IconButton>
       </Box>
 
+      {/* Tarjeta del Proyecto y Cliente Activo */}
+      <Box
+        onClick={() => {
+          onOpenProjectManagement?.();
+          onClose();
+        }}
+        sx={{
+          p: 1.5,
+          mb: 2,
+          borderRadius: 3,
+          bgcolor: '#fef3c7',
+          border: '1px solid #fde68a',
+          cursor: 'pointer',
+          '&:hover': { bgcolor: '#fde68a' },
+          transition: 'all 0.2s'
+        }}
+      >
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Stack direction="row" spacing={1} alignItems="center">
+            <ProjectIcon sx={{ fontSize: 18, color: '#92400e' }} />
+            <Typography variant="subtitle2" fontWeight={700} color="#92400e" noWrap sx={{ maxWidth: 180 }}>
+              {currentProjectName}
+            </Typography>
+          </Stack>
+          {lastSavedAt && (
+            <Chip label={lastSavedAt} size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#ffffff', color: '#92400e', fontWeight: 600 }} />
+          )}
+        </Box>
+        <Typography variant="caption" color="#b45309" display="block" mt={0.5}>
+          👤 Cliente: {clienteInfo.nombre}
+        </Typography>
+      </Box>
+
       {/* Resumen del Proyecto */}
       <Card sx={{ mb: 2.5, bgcolor: '#ffffff', border: '1px solid #e8e2d4' }}>
         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
@@ -163,20 +204,18 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
         <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
           Espacios Relevados ({rooms.length})
         </Typography>
-        <AddMenuButton
-          onAddRoom={(tab) => {
-            onClose();
-            onOpenAddRoom(tab);
-          }}
-          onAddElectricalNode={() => {
-            onClose();
-            onOpenAddElectricalNode?.();
-          }}
-          label="Agregar"
+        <Button
           size="small"
           variant="outlined"
-          sx={{ py: 0.2, px: 1, fontSize: '0.72rem' }}
-        />
+          startIcon={<AddIcon />}
+          onClick={() => {
+            onClose();
+            onOpenAddRoom('interior');
+          }}
+          sx={{ py: 0.2, px: 1, fontSize: '0.72rem', textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+        >
+          + Agregar
+        </Button>
       </Box>
 
       <Box sx={{ flexGrow: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 390px)' }}>
@@ -186,6 +225,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             const isSelected = room.id === selectedRoomId;
             const isAccess = room.isAccessPoint || preset.isAccess;
             const isTechnical = room.isTechnicalIsland || preset.isTechnical;
+            const isBoundary = isParcelBoundaryNode(room) || preset.isBoundary;
 
             return (
               <ListItem
@@ -210,7 +250,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                   selected={isSelected}
                   onClick={() => {
                     selectRoom(room.id);
-                    if (!isTechnical && !isAccess) setActivePhase('parametrization');
+                    setActivePhase('architecture');
                     onClose();
                   }}
                   sx={{
@@ -218,6 +258,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                     pr: 5,
                     bgcolor: isSelected
                       ? 'primary.light'
+                      : isBoundary
+                      ? '#f8fafc'
                       : isTechnical
                       ? '#fffbeb'
                       : isAccess
@@ -225,6 +267,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                       : '#ffffff',
                     border: isSelected
                       ? '1.5px solid #00629e'
+                      : isBoundary
+                      ? '1px dashed #64748b'
                       : isTechnical
                       ? '1px dashed #f59e0b'
                       : isAccess
@@ -236,7 +280,9 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 32 }}>
-                    {isTechnical ? (
+                    {isBoundary ? (
+                      <BoundaryIcon fontSize="small" sx={{ color: '#475569' }} />
+                    ) : isTechnical ? (
                       <IslandIcon fontSize="small" sx={{ color: '#d97706' }} />
                     ) : isAccess ? (
                       <EntryIcon fontSize="small" sx={{ color: '#059669' }} />
@@ -255,16 +301,18 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                   <ListItemText
                     primary={room.name}
                     secondary={
-                      isTechnical
+                      isBoundary
+                        ? 'Límite Perimetral / Medianera'
+                        : isTechnical
                         ? 'Isla Técnica de Suministro'
                         : isAccess
-                        ? 'Punto de Ingreso / Límite'
+                        ? 'Punto de Ingreso / Circulación'
                         : `${room.dimensions.width}m × ${room.dimensions.length}m`
                     }
                     primaryTypographyProps={{
                       variant: 'body2',
                       fontWeight: isSelected ? 700 : 500,
-                      color: isTechnical ? '#92400e' : isAccess ? '#065f46' : 'text.primary'
+                      color: isBoundary ? '#334155' : isTechnical ? '#92400e' : isAccess ? '#065f46' : 'text.primary'
                     }}
                     secondaryTypographyProps={{ variant: 'caption' }}
                   />
@@ -295,8 +343,38 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
 
       <Divider sx={{ my: 2 }} />
 
-      {/* Acciones de Proyecto */}
-      <Stack spacing={1}>
+      {/* Gestión de Obra y Cotizador IEBA */}
+      <Stack spacing={1.2}>
+        <Button
+          fullWidth
+          variant="contained"
+          color="primary"
+          size="small"
+          startIcon={<ClientIcon />}
+          onClick={() => {
+            onOpenProjectManagement?.();
+            onClose();
+          }}
+          sx={{ borderRadius: 2, fontWeight: 700 }}
+        >
+          Ficha de Obra y Cliente
+        </Button>
+
+        <Button
+          fullWidth
+          variant="outlined"
+          color="warning"
+          size="small"
+          startIcon={<ExportIcon />}
+          onClick={() => {
+            exportProjectToCotizadorJSON();
+            onClose();
+          }}
+          sx={{ borderRadius: 2, fontWeight: 700 }}
+        >
+          Exportar a Cotizador (.ieba.json)
+        </Button>
+
         <Button
           fullWidth
           variant="outlined"
@@ -306,9 +384,11 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             loadSampleData();
             onClose();
           }}
+          sx={{ borderRadius: 2 }}
         >
-          Cargar Proyecto Demo Completo
+          Cargar Ejemplo (3 Ambientes)
         </Button>
+
         <Button
           fullWidth
           variant="text"

@@ -53,7 +53,8 @@ import {
   HighlightOff as ClearFocusIcon,
   Link as LinkIcon,
   Check as CheckIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
 import { TopologyLayerMode } from '@/viewmodels/surveyStore';
@@ -62,10 +63,14 @@ import { EditOpeningDialog } from './EditOpeningDialog';
 import { AddElectricalNodeDialog } from './AddElectricalNodeDialog';
 import { ConduitInspectorDrawer } from './ConduitInspectorDrawer';
 import { RoomDetailDialog } from './RoomDetailDialog';
-import { CONNECTION_TYPE_CATALOG } from '@/models/GraphModel';
+import {
+  CONNECTION_TYPE_CATALOG,
+  getConnectionOpenings,
+  getConnectionWallThickness,
+  getConnectionMaterialMeta
+} from '@/models/GraphModel';
 import { getConduitAeaNotation } from '@/models/ElectricalGraphModel';
 import { computeElectricalSubtree } from '@/viewmodels/utils/electricalSubtreeSolver';
-import { AddMenuButton } from '../common/AddMenuButton';
 
 const nodeTypes = {
   roomNode: RoomNodeComponent
@@ -235,6 +240,7 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
             tipoCubierta: room.tipoCubierta || 'cubierto',
             isAccessPoint: room.isAccessPoint,
             isTechnicalIsland: room.isTechnicalIsland,
+            isParcelBoundary: room.isParcelBoundary,
             isCommonArea: room.isCommonArea,
             dimensions: room.dimensions,
             assetCount: room.electricalAssets.length,
@@ -286,6 +292,10 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
       connections.forEach((conn) => {
         const typeMeta =
           CONNECTION_TYPE_CATALOG[conn.type] || CONNECTION_TYPE_CATALOG.puerta_estandar;
+        const matMeta = getConnectionMaterialMeta(conn);
+        const thicknessM = getConnectionWallThickness(conn);
+        const thicknessCm = Math.round(thicknessM * 100);
+        const openings = getConnectionOpenings(conn);
 
         const srcWall = conn.sourceWall || 'east';
         const tgtWall = conn.targetWall || 'west';
@@ -294,15 +304,35 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
 
         const wallBadge = `[${WALL_LABEL_MAP[srcWall] || srcWall} ➔ ${WALL_LABEL_MAP[tgtWall] || tgtWall}]`;
 
-        let edgeLabel = `${typeMeta.emoji} ${typeMeta.label} ${wallBadge}`;
-        if (conn.opening) {
-          edgeLabel = `${typeMeta.emoji} ${conn.opening.widthMeters}m ${wallBadge} ${
-            conn.opening.hasAutomation ? '⚡' : ''
-          }`;
+        let edgeLabel = `${matMeta.emoji} Muro ${thicknessCm}cm ${wallBadge}`;
+        let mobileArchLabel = `${matMeta.emoji} ${thicknessCm}cm`;
+
+        if (openings.length === 1) {
+          const op = openings[0];
+          const opMeta = CONNECTION_TYPE_CATALOG[op.openingType] || typeMeta;
+          const autoIcon = op.hasAutomation ? '⚡' : '';
+          edgeLabel = `${opMeta.emoji} ${op.widthMeters}m ${wallBadge} • ${thicknessCm}cm ${autoIcon}`;
+          mobileArchLabel = `${opMeta.emoji} ${op.widthMeters}m ${autoIcon}`;
+        } else if (openings.length > 1) {
+          const emojis = openings.map((o) => CONNECTION_TYPE_CATALOG[o.openingType]?.emoji || '🚪').slice(0, 3).join('');
+          edgeLabel = `${emojis} ${openings.length} Aberturas ${wallBadge} • ${thicknessCm}cm`;
+          mobileArchLabel = `${emojis} ${openings.length}Ab`;
         }
 
-        const mobileArchLabel = conn.opening?.hasAutomation ? `${typeMeta.emoji} ⚡` : typeMeta.emoji;
+        if (conn.invasion && conn.invasion.type !== 'none') {
+          const invArrow = conn.invasion.type === 'source_invades_target' ? '🔲 Invasión ➔' : '🔲 Invasión ⬅';
+          const depthTxt = conn.invasion.depthMeters ? `${conn.invasion.depthMeters}m` : 'Auto';
+          edgeLabel += ` • ${invArrow} ${depthTxt}`;
+          mobileArchLabel += ` • 🔲${depthTxt}`;
+        }
+
+        if (conn.hasElectricalPass) {
+          edgeLabel += ' ⚡';
+          mobileArchLabel += ' ⚡';
+        }
+
         const finalArchLabel = isMobile ? mobileArchLabel : edgeLabel;
+        const strokeColor = openings.length > 0 ? (CONNECTION_TYPE_CATALOG[openings[0].openingType]?.color || matMeta.color) : matMeta.color;
 
         formattedEdges.push({
           id: `arch-${conn.id}`,
@@ -312,16 +342,16 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
           targetHandle: tgtHandle,
           label: finalArchLabel,
           type: 'smoothstep',
-          animated: conn.type === 'conduit_main' || !!conn.opening?.hasAutomation,
+          animated: conn.type === 'conduit_main' || !!conn.hasElectricalPass || openings.some((o) => o.hasAutomation),
           style: {
-            stroke: typeMeta.color,
-            strokeWidth: isMobile ? 2 : 2.5,
-            strokeDasharray: typeMeta.strokeDasharray,
+            stroke: strokeColor,
+            strokeWidth: isMobile ? 2 : openings.length === 0 ? 3 : 2.5,
+            strokeDasharray: openings.length === 0 ? '6,4' : typeMeta.strokeDasharray,
             cursor: 'pointer',
             opacity: 1
           },
-          labelStyle: { fill: '#0f172a', fontWeight: 700, fontSize: isMobile ? 12 : 10.5 },
-          labelBgStyle: { fill: '#ffffff', fillOpacity: 0.96, rx: 6, ry: 6, stroke: typeMeta.color, strokeWidth: 1 },
+          labelStyle: { fill: '#0f172a', fontWeight: 700, fontSize: isMobile ? 11 : 10 },
+          labelBgStyle: { fill: '#ffffff', fillOpacity: 0.96, rx: 6, ry: 6, stroke: strokeColor, strokeWidth: 1 },
           labelBgPadding: isMobile ? [4, 2] : [6, 4],
           data: { edgeType: 'architectural', rawId: conn.id }
         });
@@ -520,8 +550,17 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
       {/* 🧭 Barra Superior de Control de Capas y Acciones */}
       <Panel position="top-left" style={{ margin: isMobile ? 8 : 16, zIndex: 10, maxWidth: isMobile ? 'calc(100vw - 16px)' : undefined }}>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ gap: 0.8 }}>
-          {/* Botón Único "+ Agregar" */}
-          <AddMenuButton onAddRoom={onOpenAddRoom} />
+          {/* Botón Directo "+ Agregar" (Abre el diálogo modal con pestañas) */}
+          <Button
+            variant="contained"
+            size="small"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={() => onOpenAddRoom('interior')}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+          >
+            + Agregar
+          </Button>
 
           {/* Selector Estricto de Capas (Arquitectura vs Eléctrica) */}
           <ToggleButtonGroup

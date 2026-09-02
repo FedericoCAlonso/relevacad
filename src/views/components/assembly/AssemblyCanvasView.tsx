@@ -9,12 +9,13 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Stage, Layer, Line } from 'react-konva';
+import { Stage, Layer, Line, Group, Text } from 'react-konva';
 import {
   Box,
   Typography,
   Chip,
   IconButton,
+  Button,
   Tooltip,
   Stack,
   Paper,
@@ -33,15 +34,24 @@ import {
   AutoAwesome as AutoLayoutIcon,
   ViewInAr as WallIcon,
   AccountTree as TopologyLinesIcon,
-  Architecture as ArchPlanIcon
+  Architecture as ArchPlanIcon,
+  Tune as TuneIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
 import { metersToPixels, PIXELS_PER_METER } from '@/viewmodels/utils/geometryUtils';
-import { CONNECTION_TYPE_CATALOG } from '@/models/GraphModel';
+import { CONNECTION_TYPE_CATALOG, LogicalConnection } from '@/models/GraphModel';
+import { WallOrientation, isMetricRoom, isParcelBoundaryNode } from '@/models/RoomModel';
 import { RoomAssemblyShape } from './RoomAssemblyShape';
 import { IncrementalSurveyAssistant } from './IncrementalSurveyAssistant';
+import { EditOpeningDialog } from '../topology/EditOpeningDialog';
+import { RoomDetailDialog } from '../topology/RoomDetailDialog';
 
-export const AssemblyCanvasView: React.FC = () => {
+interface AssemblyCanvasViewProps {
+  onOpenAddRoom?: (defaultTab?: 'interior' | 'access' | 'technical') => void;
+}
+
+export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAddRoom }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -50,6 +60,10 @@ export const AssemblyCanvasView: React.FC = () => {
   const [stagePos, setStagePos] = useState({ x: 80, y: 60 });
   const [showAbstractEdges, setShowAbstractEdges] = useState(false);
 
+  // Modales de Inspección de Pared/Abertura y Detalle de Ambiente
+  const [editingConnection, setEditingConnection] = useState<LogicalConnection | null>(null);
+  const [detailRoomId, setDetailRoomId] = useState<string | null>(null);
+
   // Menú flotante compacto para Espesor de Muro
   const [wallMenuAnchor, setWallMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -57,6 +71,7 @@ export const AssemblyCanvasView: React.FC = () => {
     rooms,
     connections,
     selectedRoomId,
+    selectedRoom,
     selectRoom,
     autoAssembleRooms,
     isSnapEnabled,
@@ -68,8 +83,17 @@ export const AssemblyCanvasView: React.FC = () => {
     setWallThickness,
     isAssistantOpen,
     toggleAssistantOpen,
-    questionsQueue
+    questionsQueue,
+    getOrCreateWallConnection
   } = useSurveyViewModel();
+
+  const handleWallClick = useCallback(
+    (roomId: string, wall: WallOrientation) => {
+      const conn = getOrCreateWallConnection(roomId, wall);
+      setEditingConnection(conn);
+    },
+    [getOrCreateWallConnection]
+  );
 
   const wallThicknessPx = useMemo(
     () => wallThicknessMeters * PIXELS_PER_METER,
@@ -150,6 +174,29 @@ export const AssemblyCanvasView: React.FC = () => {
         }}
       >
         <Stack direction="row" alignItems="center" spacing={1}>
+          {/* Botón Prominente para Agregar Ambiente */}
+          {onOpenAddRoom && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => onOpenAddRoom('interior')}
+              sx={{
+                borderRadius: 6,
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                height: 28,
+                px: 1.5,
+                bgcolor: '#0284c7',
+                '&:hover': { bgcolor: '#0369a1' },
+                boxShadow: 'none'
+              }}
+            >
+              + Ambiente
+            </Button>
+          )}
+
           {/* Botón Compacto de Espesor de Muro */}
           <Tooltip title="Cambiar espesor constructivo de muros">
             <Chip
@@ -386,25 +433,199 @@ export const AssemblyCanvasView: React.FC = () => {
           </Layer>
         )}
 
-        {/* Capa 3: Ambientes Arquitectónicos Métricos, Muros y Aberturas */}
+        {/* Capa 3: Ambientes Arquitectónicos Métricos y Zonas Sombreadas de Referencia */}
         <Layer>
+          {rooms.map((room) => (
+            <RoomAssemblyShape
+              key={room.id}
+              room={room}
+              allRooms={rooms}
+              isSelected={room.id === selectedRoomId}
+              wallThicknessPx={wallThicknessPx}
+              openings={connections}
+              onSelect={selectRoom}
+              onWallClick={handleWallClick}
+              onOpenParametrization={(id) => setDetailRoomId(id)}
+              onDragMove={handleNodeDragMove}
+              onDragEnd={handleNodeDragEnd}
+            />
+          ))}
+        </Layer>
+
+        {/* Capa 4: Ejes Medianeros y Límites de Parcela (No interactiva, simbología profesional CAD) */}
+        <Layer listening={false}>
           {rooms
-            .filter((r) => !r.isAccessPoint && !r.isTechnicalIsland)
-            .map((room) => (
-              <RoomAssemblyShape
-                key={room.id}
-                room={room}
-                allRooms={rooms}
-                isSelected={room.id === selectedRoomId}
-                wallThicknessPx={wallThicknessPx}
-                openings={connections}
-                onSelect={selectRoom}
-                onDragMove={handleNodeDragMove}
-                onDragEnd={handleNodeDragEnd}
-              />
-            ))}
+            .filter(isParcelBoundaryNode)
+            .map((bound) => {
+              const boundConns = connections.filter(
+                (c) => c.sourceRoomId === bound.id || c.targetRoomId === bound.id
+              );
+              const connectedRooms = rooms.filter(
+                (r) =>
+                  isMetricRoom(r) &&
+                  boundConns.some((c) => c.sourceRoomId === r.id || c.targetRoomId === r.id)
+              );
+              if (connectedRooms.length === 0) return null;
+
+              const xs = connectedRooms.map((r) => r.canvasPosition.x);
+              const maxXs = connectedRooms.map(
+                (r) => r.canvasPosition.x + metersToPixels(r.dimensions?.width || 3)
+              );
+              const ys = connectedRooms.map((r) => r.canvasPosition.y);
+              const maxYs = connectedRooms.map(
+                (r) => r.canvasPosition.y + metersToPixels(r.dimensions?.length || 2.5)
+              );
+
+              const minX = Math.min(...xs);
+              const maxX = Math.max(...maxXs);
+              const minY = Math.min(...ys);
+              const maxY = Math.max(...maxYs);
+
+              if (bound.type === 'limit_medianera_izq') {
+                const lineX = minX - wallThicknessPx / 2 - 8;
+                return (
+                  <Group key={bound.id}>
+                    <Line
+                      points={[lineX, minY - 30, lineX, maxY + 30]}
+                      stroke="#475569"
+                      strokeWidth={2.5}
+                      dash={[14, 4, 3, 4]}
+                    />
+                    <Text
+                      x={lineX - 18}
+                      y={maxY + 20}
+                      text={`🧱 ${bound.name.toUpperCase()}`}
+                      fontSize={11}
+                      fontStyle="bold"
+                      fill="#475569"
+                      rotation={-90}
+                    />
+                  </Group>
+                );
+              } else if (bound.type === 'limit_medianera_der') {
+                const lineX = maxX + wallThicknessPx / 2 + 8;
+                return (
+                  <Group key={bound.id}>
+                    <Line
+                      points={[lineX, minY - 30, lineX, maxY + 30]}
+                      stroke="#475569"
+                      strokeWidth={2.5}
+                      dash={[14, 4, 3, 4]}
+                    />
+                    <Text
+                      x={lineX + 6}
+                      y={minY - 20}
+                      text={`🧱 ${bound.name.toUpperCase()}`}
+                      fontSize={11}
+                      fontStyle="bold"
+                      fill="#475569"
+                      rotation={90}
+                    />
+                  </Group>
+                );
+              } else if (bound.type === 'limit_frente_lm') {
+                const lineY = maxY + wallThicknessPx / 2 + 8;
+                return (
+                  <Group key={bound.id}>
+                    <Line
+                      points={[minX - 30, lineY, maxX + 30, lineY]}
+                      stroke="#0284c7"
+                      strokeWidth={3.5}
+                    />
+                    <Text
+                      x={minX}
+                      y={lineY + 6}
+                      text={`🏛️ ${bound.name.toUpperCase()}`}
+                      fontSize={11}
+                      fontStyle="bold"
+                      fill="#0284c7"
+                    />
+                  </Group>
+                );
+              } else if (bound.type === 'limit_fondo' || bound.type === 'limit_patio') {
+                const lineY = minY - wallThicknessPx / 2 - 8;
+                const isPatio = bound.type === 'limit_patio';
+                return (
+                  <Group key={bound.id}>
+                    <Line
+                      points={[minX - 30, lineY, maxX + 30, lineY]}
+                      stroke={isPatio ? '#0ea5e9' : '#059669'}
+                      strokeWidth={2.5}
+                      dash={[10, 4]}
+                    />
+                    <Text
+                      x={minX}
+                      y={lineY - 18}
+                      text={`${isPatio ? '☀️' : '🌳'} ${bound.name.toUpperCase()}`}
+                      fontSize={11}
+                      fontStyle="bold"
+                      fill={isPatio ? '#0ea5e9' : '#059669'}
+                    />
+                  </Group>
+                );
+              }
+              return null;
+            })}
         </Layer>
       </Stage>
+
+      {/* 📐 Botón Flotante de Parametrización Rápida del Ambiente Seleccionado */}
+      {selectedRoom && isMetricRoom(selectedRoom) && (
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'absolute',
+            bottom: isMobile ? 80 : 20,
+            right: 20,
+            zIndex: 20,
+            py: 1,
+            px: 1.8,
+            borderRadius: 3,
+            bgcolor: '#ffffff',
+            border: '1.5px solid #00629e',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            boxShadow: '0 8px 24px rgba(0,98,158,0.18)'
+          }}
+        >
+          <Box>
+            <Typography variant="body2" fontWeight={700} color="#0f172a">
+              {selectedRoom.name}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              {selectedRoom.dimensions.width}m × {selectedRoom.dimensions.length}m • {selectedRoom.electricalAssets.length} bocas
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<TuneIcon />}
+            onClick={() => setDetailRoomId(selectedRoom.id)}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 1.5 }}
+          >
+            Medidas
+          </Button>
+        </Paper>
+      )}
+
+      {/* 🧱 Inspector Modal de Muro y Aberturas al Tocar una Pared */}
+      {editingConnection && (
+        <EditOpeningDialog
+          open={Boolean(editingConnection)}
+          onClose={() => setEditingConnection(null)}
+          connection={editingConnection}
+        />
+      )}
+
+      {/* 📐 Diálogo de Dimensiones y Propiedades del Ambiente */}
+      {detailRoomId && (
+        <RoomDetailDialog
+          open={Boolean(detailRoomId)}
+          onClose={() => setDetailRoomId(null)}
+          roomId={detailRoomId}
+        />
+      )}
 
       {/* 🤖 Asistente de Relevamiento Incremental Móvil */}
       <IncrementalSurveyAssistant />

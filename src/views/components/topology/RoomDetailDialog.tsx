@@ -132,7 +132,7 @@ export const RoomDetailDialog: React.FC<RoomDetailDialogProps> = ({
       }}
     >
       {/* Header del Diálogo */}
-      <DialogTitle sx={{ px: 2, pt: 2, pb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <DialogTitle component="div" sx={{ px: 2, pt: 2, pb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Box
             sx={{

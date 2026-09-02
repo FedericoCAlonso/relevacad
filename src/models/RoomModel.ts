@@ -31,7 +31,13 @@ export type RoomType =
   | 'technical_island_meters'  // Sala de Medidores (Subsuelo/PB)
   | 'technical_island_pillar'  // Pilar de Medición / Acometida (L.M.)
   | 'technical_island_shaft'   // Pleno Técnico / Montante Vertical
-  | 'technical_island_ground'; // Cámara de Inspección / Jabalina PAT
+  | 'technical_island_ground'  // Cámara de Inspección / Jabalina PAT
+  // Límites de Parcela / Envolvente y Medianeras
+  | 'limit_frente_lm'          // Línea Municipal / Frente (Calle)
+  | 'limit_medianera_izq'      // Medianera Lateral Izquierda (Oeste relativo)
+  | 'limit_medianera_der'      // Medianera Lateral Derecha (Este relativo)
+  | 'limit_fondo'              // Fondo / Contrafrente (Límite posterior)
+  | 'limit_patio';             // Patio de Aire y Luz / Vacío Descubierto
 
 export interface RoomDimensions {
   width: number;   // Ancho nominal en metros (eje X)
@@ -138,13 +144,25 @@ export const TIPO_CUBIERTA_CATALOG: Record<TipoCubierta, TipoCubiertaMetadata> =
   }
 };
 
+export type NodeCategory = 'room' | 'access' | 'technical_island' | 'parcel_boundary';
+
+export interface BoundaryProperties {
+  materialType?: string;          // Tipo de material constructivo del muro lindero
+  thicknessMeters?: number;       // Espesor del muro (ej: 0.30m, 0.15m)
+  boundaryCondition?: 'muro_ciego' | 'frente_calle' | 'retiro_frente' | 'patio_luz';
+  notes?: string;                 // Notas sobre el lindero o catastro
+}
+
 export interface Room {
   id: string;
   name: string;
   type: RoomType;
+  nodeCategory?: NodeCategory; // Categoría formal del nodo en la topología arquitectónica
   tipoCubierta?: TipoCubierta; // Tipo de cubierta: cubierto, semicubierto o descubierto (sin techo)
   isAccessPoint?: boolean;    // Punto de acceso/ingreso
   isTechnicalIsland?: boolean;// Isla técnica de suministro (Sala de medidores, pilar, etc.)
+  isParcelBoundary?: boolean; // Límite de parcela / Medianera o Frente de calle
+  boundaryProperties?: BoundaryProperties; // Propiedades específicas de la medianera o límite perimetral
   isCommonArea?: boolean;     // Área común sin necesidad de dimensionamiento milimétrico
   accessCategory?: 'street' | 'palier' | 'service' | 'garden';
   dimensions: RoomDimensions;
@@ -157,11 +175,42 @@ export interface Room {
   updatedAt: string;
 }
 
+export function getNodeCategory(room: {
+  type: RoomType;
+  isAccessPoint?: boolean;
+  isTechnicalIsland?: boolean;
+  isParcelBoundary?: boolean;
+}): NodeCategory {
+  if (room.isParcelBoundary || room.type.startsWith('limit_')) return 'parcel_boundary';
+  if (room.isTechnicalIsland || room.type.startsWith('technical_island_')) return 'technical_island';
+  if (room.isAccessPoint || room.type.startsWith('access_')) return 'access';
+  return 'room';
+}
+
+export function isMetricRoom(room: {
+  type: RoomType;
+  isAccessPoint?: boolean;
+  isTechnicalIsland?: boolean;
+  isParcelBoundary?: boolean;
+}): boolean {
+  return getNodeCategory(room) === 'room';
+}
+
+export function isParcelBoundaryNode(room: {
+  type: RoomType;
+  isAccessPoint?: boolean;
+  isTechnicalIsland?: boolean;
+  isParcelBoundary?: boolean;
+}): boolean {
+  return getNodeCategory(room) === 'parcel_boundary';
+}
+
 export interface RoomTypeMetadata {
   type: RoomType;
   label: string;
   isAccess: boolean;
   isTechnical: boolean;
+  isBoundary?: boolean;
   defaultCubierta: TipoCubierta;
   defaultWidth: number;
   defaultLength: number;
@@ -436,5 +485,77 @@ export const ROOM_TYPE_CATALOG: Record<RoomType, RoomTypeMetadata> = {
     color: '#fef3c7',
     iconName: 'Grounding',
     description: 'Cámara de inspección y puesta a tierra (Jabalina PAT)'
+  },
+
+  // Límites de Parcela / Envolvente y Medianeras
+  limit_frente_lm: {
+    type: 'limit_frente_lm',
+    label: 'Frente / Línea Municipal (Calle)',
+    isAccess: false,
+    isTechnical: false,
+    isBoundary: true,
+    defaultCubierta: 'descubierto',
+    defaultWidth: 0,
+    defaultLength: 0,
+    defaultHeight: 0,
+    color: '#e0e7ff',
+    iconName: 'Storefront',
+    description: 'Límite frontal del terreno con la vía pública / fachada'
+  },
+  limit_medianera_izq: {
+    type: 'limit_medianera_izq',
+    label: 'Medianera Lateral Izquierda',
+    isAccess: false,
+    isTechnical: false,
+    isBoundary: true,
+    defaultCubierta: 'descubierto',
+    defaultWidth: 0,
+    defaultLength: 0,
+    defaultHeight: 0,
+    color: '#e2e8f0',
+    iconName: 'BorderLeft',
+    description: 'Muro divisorio lateral izquierdo con propiedad vecina'
+  },
+  limit_medianera_der: {
+    type: 'limit_medianera_der',
+    label: 'Medianera Lateral Derecha',
+    isAccess: false,
+    isTechnical: false,
+    isBoundary: true,
+    defaultCubierta: 'descubierto',
+    defaultWidth: 0,
+    defaultLength: 0,
+    defaultHeight: 0,
+    color: '#e2e8f0',
+    iconName: 'BorderRight',
+    description: 'Muro divisorio lateral derecho con propiedad vecina'
+  },
+  limit_fondo: {
+    type: 'limit_fondo',
+    label: 'Fondo / Contrafrente',
+    isAccess: false,
+    isTechnical: false,
+    isBoundary: true,
+    defaultCubierta: 'descubierto',
+    defaultWidth: 0,
+    defaultLength: 0,
+    defaultHeight: 0,
+    color: '#ecfdf5',
+    iconName: 'BorderTop',
+    description: 'Límite posterior de la parcela / pulmón de manzana'
+  },
+  limit_patio: {
+    type: 'limit_patio',
+    label: 'Patio de Aire y Luz',
+    isAccess: false,
+    isTechnical: false,
+    isBoundary: true,
+    defaultCubierta: 'descubierto',
+    defaultWidth: 0,
+    defaultLength: 0,
+    defaultHeight: 0,
+    color: '#f0fdf4',
+    iconName: 'WbSunny',
+    description: 'Vacío descubierto para ventilación e iluminación reglamentaria'
   }
 };

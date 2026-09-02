@@ -14,7 +14,10 @@ import {
   WallOrientation,
   RoomGeometry,
   CornerAngleConstraints,
-  ROOM_TYPE_CATALOG
+  ROOM_TYPE_CATALOG,
+  BoundaryProperties,
+  isMetricRoom,
+  isParcelBoundaryNode
 } from '@/models/RoomModel';
 import { LogicalConnectionType } from '@/models/GraphModel';
 import {
@@ -61,6 +64,10 @@ export function useSurveyViewModel() {
   const connectRoomsAction = useSurveyStore((state) => state.connectRooms);
   const updateConnectionAction = useSurveyStore((state) => state.updateConnection);
   const removeConnectionAction = useSurveyStore((state) => state.removeConnection);
+  const addOpeningToConnectionAction = useSurveyStore((state) => state.addOpeningToConnection);
+  const updateOpeningInConnectionAction = useSurveyStore((state) => state.updateOpeningInConnection);
+  const removeOpeningFromConnectionAction = useSurveyStore((state) => state.removeOpeningFromConnection);
+  const updateConnectionWallPropertiesAction = useSurveyStore((state) => state.updateConnectionWallProperties);
 
   const addNodoElectricoAction = useSurveyStore((state) => state.addNodoElectrico);
   const updateNodoElectricoAction = useSurveyStore((state) => state.updateNodoElectrico);
@@ -84,11 +91,30 @@ export function useSurveyViewModel() {
   const inferDimensionAction = useSurveyStore((state) => state.inferDimension);
 
   const updateRoomCanvasPositionAction = useSurveyStore((state) => state.updateRoomCanvasPosition);
+  const syncRoomWallAdjacenciesAction = useSurveyStore((state) => state.syncRoomWallAdjacencies);
+  const getOrCreateWallConnectionAction = useSurveyStore((state) => state.getOrCreateWallConnection);
   const autoAssembleRoomsAction = useSurveyStore((state) => state.autoAssembleRooms);
   const setSnapGuidesAction = useSurveyStore((state) => state.setSnapGuides);
   const toggleSnapAction = useSurveyStore((state) => state.toggleSnap);
   const loadSampleDataAction = useSurveyStore((state) => state.loadSampleData);
   const resetProjectAction = useSurveyStore((state) => state.resetProject);
+
+  // Gestión de Proyecto y Cliente (Cotizador IEBA)
+  const currentProjectId = useSurveyStore((state) => state.currentProjectId);
+  const currentProjectName = useSurveyStore((state) => state.currentProjectName);
+  const clienteInfo = useSurveyStore((state) => state.clienteInfo);
+  const ubicacionObra = useSurveyStore((state) => state.ubicacionObra);
+  const descripcionObra = useSurveyStore((state) => state.descripcionObra);
+  const rumboFrente = useSurveyStore((state) => state.rumboFrente);
+  const azimutGrados = useSurveyStore((state) => state.azimutGrados);
+  const isAutoSaving = useSurveyStore((state) => state.isAutoSaving);
+  const lastSavedAt = useSurveyStore((state) => state.lastSavedAt);
+  const setProjectMetadataAction = useSurveyStore((state) => state.setProjectMetadata);
+  const setClienteInfoAction = useSurveyStore((state) => state.setClienteInfo);
+  const saveCurrentProjectToDBAction = useSurveyStore((state) => state.saveCurrentProjectToDB);
+  const loadProjectFromDBAction = useSurveyStore((state) => state.loadProjectFromDB);
+  const createNewProjectAction = useSurveyStore((state) => state.createNewProject);
+  const exportProjectToCotizadorJSONAction = useSurveyStore((state) => state.exportProjectToCotizadorJSON);
 
   // Asistente de Relevamiento Incremental
   const acceptableErrorThresholdMeters = useSurveyStore((state) => state.acceptableErrorThresholdMeters);
@@ -141,8 +167,12 @@ export function useSurveyViewModel() {
     return rooms.filter((r) => r.isTechnicalIsland);
   }, [rooms]);
 
+  const boundaryRooms = useMemo(() => {
+    return rooms.filter(isParcelBoundaryNode);
+  }, [rooms]);
+
   const interiorRooms = useMemo(() => {
-    return rooms.filter((r) => !r.isAccessPoint && !r.isTechnicalIsland);
+    return rooms.filter(isMetricRoom);
   }, [rooms]);
 
   const getElectricalNodesForRoom = useCallback(
@@ -169,7 +199,7 @@ export function useSurveyViewModel() {
 
   const projectStats = useMemo(() => {
     const totalAreaM2 = rooms.reduce((sum, r) => {
-      if (r.isTechnicalIsland || r.isAccessPoint) return sum;
+      if (!isMetricRoom(r)) return sum;
       return sum + (r.dimensions.width * r.dimensions.length);
     }, 0);
 
@@ -193,6 +223,7 @@ export function useSurveyViewModel() {
       totalInterior: interiorRooms.length,
       totalEntries: entryRooms.length,
       totalIslands: technicalIslands.length,
+      totalBoundaries: boundaryRooms.length,
       totalConnections: connections.length,
       totalElectricalNodes: electricalNodes.length,
       totalElectricalTramos: electricalTramos.length,
@@ -202,7 +233,7 @@ export function useSurveyViewModel() {
       circuitsCount: circuitsSet.size,
       circuitsList: Array.from(circuitsSet)
     };
-  }, [rooms, connections, electricalNodes, electricalTramos, interiorRooms.length, entryRooms.length, technicalIslands.length]);
+  }, [rooms, connections, electricalNodes, electricalTramos, interiorRooms.length, entryRooms.length, technicalIslands.length, boundaryRooms.length]);
 
   // --- BUSINESS LOGIC & VALIDATIONS ---
 
@@ -250,7 +281,8 @@ export function useSurveyViewModel() {
       customDims?: Partial<RoomDimensions>,
       isAccess?: boolean,
       isTechnical?: boolean,
-      tipoCubierta?: TipoCubierta
+      tipoCubierta?: TipoCubierta,
+      boundaryProps?: BoundaryProperties
     ) => {
       const preset = ROOM_TYPE_CATALOG[type] || ROOM_TYPE_CATALOG.other;
       const initialDims: RoomDimensions = {
@@ -261,6 +293,7 @@ export function useSurveyViewModel() {
 
       const isAccessPoint = isAccess !== undefined ? isAccess : preset.isAccess;
       const isTechnicalIsland = isTechnical !== undefined ? isTechnical : preset.isTechnical;
+      const isParcelBoundary = preset.isBoundary || false;
 
       return addRoomAction({
         name: name.trim() || preset.label,
@@ -268,7 +301,9 @@ export function useSurveyViewModel() {
         tipoCubierta: tipoCubierta || preset.defaultCubierta || 'cubierto',
         isAccessPoint,
         isTechnicalIsland,
-        isCommonArea: isAccessPoint || isTechnicalIsland,
+        isParcelBoundary,
+        boundaryProperties: isParcelBoundary ? boundaryProps : undefined,
+        isCommonArea: isAccessPoint || isTechnicalIsland || isParcelBoundary,
         dimensions: initialDims,
         color: preset.color
       });
@@ -571,10 +606,14 @@ export function useSurveyViewModel() {
     deleteRoom: removeRoomAction,
     updateRoomTopologyPosition: updateRoomTopologyPositionAction,
 
-    // Conexiones Arquitectónicas (Aberturas)
+    // Conexiones Arquitectónicas (Muros Compartidos y Aberturas)
     connectRooms,
     updateConnection: updateConnectionAction,
     deleteConnection: removeConnectionAction,
+    addOpeningToConnection: addOpeningToConnectionAction,
+    updateOpeningInConnection: updateOpeningInConnectionAction,
+    removeOpeningFromConnection: removeOpeningFromConnectionAction,
+    updateConnectionWallProperties: updateConnectionWallPropertiesAction,
 
     // Grafo Eléctrico (Nodos y Tramos)
     getElectricalNodesForRoom,
@@ -593,10 +632,12 @@ export function useSurveyViewModel() {
     updateElectricalAsset: updateElectricalAssetAction,
     deleteElectricalAsset: removeElectricalAssetAction,
 
-    // Ensamblaje 2D
+    // Ensamblaje y Planta Arquitectónica 2D
     autoAssembleRooms: autoAssembleRoomsAction,
     handleRoomDrag,
     handleRoomDragEnd,
+    syncRoomWallAdjacencies: syncRoomWallAdjacenciesAction,
+    getOrCreateWallConnection: getOrCreateWallConnectionAction,
 
     // Asistente de Relevamiento Incremental
     solverResult,
@@ -611,6 +652,23 @@ export function useSurveyViewModel() {
     // Espesor de Muros
     wallThicknessMeters,
     setWallThickness: setWallThicknessAction,
+
+    // Gestión de Proyecto y Cliente (Cotizador IEBA)
+    currentProjectId,
+    currentProjectName,
+    clienteInfo,
+    ubicacionObra,
+    descripcionObra,
+    rumboFrente,
+    azimutGrados,
+    isAutoSaving,
+    lastSavedAt,
+    setProjectMetadata: setProjectMetadataAction,
+    setClienteInfo: setClienteInfoAction,
+    saveCurrentProjectToDB: saveCurrentProjectToDBAction,
+    loadProjectFromDB: loadProjectFromDBAction,
+    createNewProject: createNewProjectAction,
+    exportProjectToCotizadorJSON: exportProjectToCotizadorJSONAction,
 
     // Proyecto
     loadSampleData: loadSampleDataAction,

@@ -27,23 +27,27 @@ import {
   Tune as ParamIcon,
   ViewQuilt as AssemblyIcon,
   AutoFixHigh as SnapIcon,
-  CloudDone as PwaIcon
+  CloudDone as PwaIcon,
+  Folder as ProjectIcon,
+  Keyboard as KeyboardIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
 import { NavigationDrawer } from './NavigationDrawer';
+import { ProjectManagementDialog } from '../common/ProjectManagementDialog';
 
 interface AppLayoutProps {
   children: React.ReactNode;
   onOpenAddRoom: (defaultTab?: 'interior' | 'access' | 'technical') => void;
-  onOpenAddElectricalNode?: () => void;
+  onOpenShortcutsHelp?: () => void;
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
   children,
   onOpenAddRoom,
-  onOpenAddElectricalNode
+  onOpenShortcutsHelp
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -51,7 +55,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     activePhase,
     setActivePhase,
     isSnapEnabled,
-    toggleSnap
+    toggleSnap,
+    currentProjectName,
+    clienteInfo
   } = useSurveyViewModel();
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
@@ -130,22 +136,22 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 }}
               >
                 <Tab
-                  value="topology"
-                  icon={<TopologyIcon fontSize="small" />}
-                  iconPosition="start"
-                  label="1. Topología"
-                />
-                <Tab
-                  value="parametrization"
-                  icon={<ParamIcon fontSize="small" />}
-                  iconPosition="start"
-                  label="2. Parametrización"
-                />
-                <Tab
-                  value="assembly"
+                  value="architecture"
                   icon={<AssemblyIcon fontSize="small" />}
                   iconPosition="start"
-                  label="3. Ensamblaje 2D"
+                  label="1. Planta Arquitectónica"
+                />
+                <Tab
+                  value="electrical"
+                  icon={<TopologyIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="2. Instalación Eléctrica"
+                />
+                <Tab
+                  value="presentation"
+                  icon={<ParamIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="3. Presentación & Cotizador"
                 />
               </Tabs>
             </Box>
@@ -156,8 +162,27 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
           {/* Acciones de Cabecera */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+            {/* Botón / Chip de Ficha de Proyecto & Cliente */}
+            <Tooltip title="Ficha de Obra, Cliente y Cotizador IEBA">
+              <Chip
+                icon={<ProjectIcon fontSize="small" />}
+                label={isMobile ? currentProjectName : `${currentProjectName} • ${clienteInfo.nombre}`}
+                onClick={() => setProjectDialogOpen(true)}
+                clickable
+                color="primary"
+                variant="outlined"
+                size="small"
+                sx={{
+                  fontWeight: 600,
+                  height: 28,
+                  fontSize: '0.75rem',
+                  maxWidth: isMobile ? 140 : 260
+                }}
+              />
+            </Tooltip>
+
             {/* Toggle de Snapping Magnético */}
-            {activePhase === 'assembly' && (
+            {activePhase === 'architecture' && (
               <Tooltip title={isSnapEnabled ? 'Atracción Magnética (~15px) Activa' : 'Atracción Magnética Desactivada'}>
                 <Chip
                   icon={<SnapIcon fontSize="small" />}
@@ -172,9 +197,29 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               </Tooltip>
             )}
 
+            {/* Botón de Atajos de Teclado (Desktop) */}
+            {!isMobile && onOpenShortcutsHelp && (
+              <Tooltip title="Atajos de Teclado (CheatSheet CAD)">
+                <Chip
+                  icon={<KeyboardIcon fontSize="small" />}
+                  label="Atajos (?)"
+                  onClick={onOpenShortcutsHelp}
+                  clickable
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    fontWeight: 600,
+                    height: 28,
+                    fontSize: '0.75rem',
+                    bgcolor: '#f8fafc'
+                  }}
+                />
+              </Tooltip>
+            )}
+
             {/* PWA Offline Ready Badge */}
             {!isMobile && (
-              <Tooltip title="PWA con soporte offline y almacenamiento local">
+              <Tooltip title="PWA con soporte offline y almacenamiento local en IndexedDB">
                 <Chip
                   icon={<PwaIcon fontSize="small" />}
                   label="Offline Ready"
@@ -194,7 +239,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onOpenAddRoom={onOpenAddRoom}
-        onOpenAddElectricalNode={onOpenAddElectricalNode}
+        onOpenProjectManagement={() => setProjectDialogOpen(true)}
+      />
+
+      {/* Diálogo de Gestión de Proyecto y Cotizador IEBA */}
+      <ProjectManagementDialog
+        open={projectDialogOpen}
+        onClose={() => setProjectDialogOpen(false)}
       />
 
       {/* Contenedor Principal de la Vista Activa */}
@@ -247,19 +298,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             }}
           >
             <BottomNavigationAction
-              label="Topología"
-              value="topology"
+              label="Planta"
+              value="architecture"
+              icon={<AssemblyIcon />}
+            />
+            <BottomNavigationAction
+              label="Eléctrico"
+              value="electrical"
               icon={<TopologyIcon />}
             />
             <BottomNavigationAction
-              label="Parámetros"
-              value="parametrization"
+              label="Presentación"
+              value="presentation"
               icon={<ParamIcon />}
-            />
-            <BottomNavigationAction
-              label="Ensamblaje"
-              value="assembly"
-              icon={<AssemblyIcon />}
             />
           </BottomNavigation>
         </Paper>

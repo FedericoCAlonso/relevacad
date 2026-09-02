@@ -77,7 +77,7 @@ export const AddElectricalNodeDialog: React.FC<AddElectricalNodeDialogProps> = (
       fullWidth
       PaperProps={{ sx: { borderRadius: isMobile ? 0 : 4, p: isMobile ? 0.5 : 1 } }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <DialogTitle component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <BoltIcon color="primary" />
         <Typography variant="h6" fontWeight={700}>
           Nuevo Nodo Eléctrico

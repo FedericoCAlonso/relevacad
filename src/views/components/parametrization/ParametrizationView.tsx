@@ -25,10 +25,11 @@ import {
   ViewQuilt as AssemblyIcon,
   Delete as DeleteIcon,
   Hub as TopologyIcon,
-  CloudQueue as CloudIcon
+  CloudQueue as CloudIcon,
+  BorderLeft as BoundaryIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
-import { WallOrientation } from '@/models/RoomModel';
+import { WallOrientation, isMetricRoom, isParcelBoundaryNode } from '@/models/RoomModel';
 import { RoomDimensionsCard } from './RoomDimensionsCard';
 import { WallAssetEditor } from './WallAssetEditor';
 import { RoomSchematicPreview } from './RoomSchematicPreview';
@@ -87,8 +88,9 @@ export const ParametrizationView: React.FC<ParametrizationViewProps> = ({
     );
   }
 
-  const currentRoom = selectedRoom || rooms.find((r) => !r.isAccessPoint && !r.isTechnicalIsland) || rooms[0];
-  const isNonMetric = currentRoom.isAccessPoint || currentRoom.isTechnicalIsland;
+  const currentRoom = selectedRoom || rooms.find(isMetricRoom) || rooms[0];
+  const isBoundary = isParcelBoundaryNode(currentRoom);
+  const isNonMetric = !isMetricRoom(currentRoom);
 
   return (
     <Box sx={{ height: '100%', overflowY: 'auto', p: { xs: 2, md: 3 } }}>
@@ -106,12 +108,15 @@ export const ParametrizationView: React.FC<ParametrizationViewProps> = ({
                     const isSelected = room.id === currentRoom.id;
                     const isAccess = room.isAccessPoint;
                     const isTechnical = room.isTechnicalIsland;
+                    const isBound = isParcelBoundaryNode(room);
 
                     return (
                       <Chip
                         key={room.id}
                         label={
-                          isTechnical
+                          isBound
+                            ? `🧱 ${room.name}`
+                            : isTechnical
                             ? `⚡ ${room.name}`
                             : isAccess
                             ? `🟢 ${room.name}`
@@ -120,7 +125,9 @@ export const ParametrizationView: React.FC<ParametrizationViewProps> = ({
                         onClick={() => selectRoom(room.id)}
                         color={
                           isSelected
-                            ? isTechnical
+                            ? isBound
+                              ? 'default'
+                              : isTechnical
                               ? 'warning'
                               : isAccess
                               ? 'success'
@@ -128,7 +135,11 @@ export const ParametrizationView: React.FC<ParametrizationViewProps> = ({
                             : 'default'
                         }
                         variant={isSelected ? 'filled' : 'outlined'}
-                        sx={{ fontWeight: isSelected ? 700 : 500 }}
+                        sx={{
+                          fontWeight: isSelected ? 700 : 500,
+                          bgcolor: isSelected && isBound ? '#475569' : undefined,
+                          color: isSelected && isBound ? '#ffffff' : undefined
+                        }}
                       />
                     );
                   })}
@@ -158,29 +169,41 @@ export const ParametrizationView: React.FC<ParametrizationViewProps> = ({
           </CardContent>
         </Card>
 
-        {/* Si es un nodo conceptual (Ingreso / Isla Técnica), mostrar aviso sin muros rígidos */}
+        {/* Si es un nodo conceptual (Límite / Ingreso / Isla Técnica), mostrar aviso sin muros rígidos */}
         {isNonMetric ? (
           <Card
             sx={{
               p: 4,
               textAlign: 'center',
-              bgcolor: currentRoom.isTechnicalIsland ? '#fffbeb' : '#f0fdf4',
-              border: currentRoom.isTechnicalIsland ? '1.5px dashed #f59e0b' : '1.5px dashed #10b981',
+              bgcolor: isBoundary ? '#f8fafc' : currentRoom.isTechnicalIsland ? '#fffbeb' : '#f0fdf4',
+              border: isBoundary ? '1.5px dashed #64748b' : currentRoom.isTechnicalIsland ? '1.5px dashed #f59e0b' : '1.5px dashed #10b981',
               borderRadius: 4
             }}
           >
-            <CloudIcon
-              sx={{
-                fontSize: 56,
-                color: currentRoom.isTechnicalIsland ? '#d97706' : '#059669',
-                mb: 1.5
-              }}
-            />
-            <Typography variant="h6" fontWeight={700} color={currentRoom.isTechnicalIsland ? '#92400e' : '#065f46'} gutterBottom>
+            {isBoundary ? (
+              <BoundaryIcon
+                sx={{
+                  fontSize: 56,
+                  color: '#475569',
+                  mb: 1.5
+                }}
+              />
+            ) : (
+              <CloudIcon
+                sx={{
+                  fontSize: 56,
+                  color: currentRoom.isTechnicalIsland ? '#d97706' : '#059669',
+                  mb: 1.5
+                }}
+              />
+            )}
+            <Typography variant="h6" fontWeight={700} color={isBoundary ? '#1e293b' : currentRoom.isTechnicalIsland ? '#92400e' : '#065f46'} gutterBottom>
               {currentRoom.name}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 520, mx: 'auto', mb: 3 }}>
-              {currentRoom.isTechnicalIsland
+              {isBoundary
+                ? 'Este es un Límite de Parcela o Eje Medianero. Es una restricción geométrica perimetral recta e inmutable contra la cual se apoyan y alinean los ambientes. No posee superficie habitable ni bocas eléctricas interiores.'
+                : currentRoom.isTechnicalIsland
                 ? 'Esta es una Isla Técnica de Suministro (ej: Sala de Medidores o Pilar de Acometida). No requiere cotas de habitación constructiva y se representa como una nube de suministro exterior.'
                 : 'Este es un Punto de Ingreso / Frontera (ej: Calle Línea Municipal o Palier Común). Se representa como una nube exterior en el esquema de ensamblaje.'}
             </Typography>

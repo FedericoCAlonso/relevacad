@@ -7,8 +7,8 @@
  * - Garantiza que el plano de planta 2D se genere de forma completa y continua
  */
 
-import { Room, ROOM_TYPE_CATALOG } from '@/models/RoomModel';
-import { LogicalConnection } from '@/models/GraphModel';
+import { Room, ROOM_TYPE_CATALOG, isMetricRoom } from '@/models/RoomModel';
+import { LogicalConnection, getConnectionOpenings } from '@/models/GraphModel';
 import {
   SurveyMetricNode,
   SurveyMetricEdge,
@@ -30,7 +30,7 @@ export function detectGraphCycles(
   rooms: Room[],
   connections: LogicalConnection[]
 ): SurveyCycle[] {
-  const metricRooms = rooms.filter((r) => !r.isAccessPoint && !r.isTechnicalIsland);
+  const metricRooms = rooms.filter(isMetricRoom);
   const metricRoomIds = new Set(metricRooms.map((r) => r.id));
   const metricConns = connections.filter(
     (c) => metricRoomIds.has(c.sourceRoomId) && metricRoomIds.has(c.targetRoomId)
@@ -112,7 +112,7 @@ export function solveGeometricConstraints(
   const threshold = options.acceptableErrorThresholdMeters ?? 0.05;
   const maxIterations = options.maxIterations ?? 40;
 
-  const metricRooms = rooms.filter((r) => !r.isAccessPoint && !r.isTechnicalIsland);
+  const metricRooms = rooms.filter(isMetricRoom);
   const metricRoomIds = new Set(metricRooms.map((r) => r.id));
   const metricConns = connections.filter(
     (c) => metricRoomIds.has(c.sourceRoomId) && metricRoomIds.has(c.targetRoomId)
@@ -163,7 +163,9 @@ export function solveGeometricConstraints(
   // 3. ANALIZAR ESTADO DE ARISTAS Y PESOS
   const edgeMap = new Map<string, SurveyMetricEdge>();
   metricConns.forEach((c) => {
-    const isConfirmed = Boolean(c.opening && c.opening.widthMeters > 0 && c.opening.widthMeters !== 0.8);
+    const openings = getConnectionOpenings(c);
+    const firstOp = openings[0];
+    const isConfirmed = Boolean(firstOp && firstOp.widthMeters > 0 && firstOp.widthMeters !== 0.8);
     const weight = isConfirmed ? 50.0 : 1.0;
     const inCycles = edgeCycleMap.get(c.id) || [];
 
@@ -174,8 +176,8 @@ export function solveGeometricConstraints(
       sourceWall: c.sourceWall || 'east',
       targetWall: c.targetWall || 'west',
       type: c.type,
-      label: c.label || 'Vínculo',
-      measuredLengthMeters: c.opening?.widthMeters,
+      label: c.label || 'Muro Compartido',
+      measuredLengthMeters: firstOp?.widthMeters,
       status: isConfirmed ? 'confirmed' : 'estimated',
       weight,
       residualErrorMeters: 0,

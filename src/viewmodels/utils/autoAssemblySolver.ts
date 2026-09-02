@@ -1,18 +1,206 @@
 /**
  * ViewModel Utility: Automatic Architectural Floor Plan Solver
  * Genera la distribución planimétrica 2D automática a partir del Grafo Topológico.
- * Resuelve adyacencias físicas entre paredes (N, S, E, O), alineaciones y contigüidad.
+ * Resuelve:
+ * 1. Adyacencias físicas exactas entre paredes (N, S, E, O) y contigüidad.
+ * 2. Múltiples restricciones simultáneas (ej. Dormitorio que toca Pasillo al Oeste y Balcón al Sur).
+ * 3. Detección y eliminación estricta de solapamientos (cero interpenetración de ambientes).
+ * 4. Deducción automática de Quiebres / Invasiones de Muro (Placares, Nichos de Ducha, Mochetas).
+ * 5. Normalización y centrado planimétrico.
  */
 
-import { Room } from '@/models/RoomModel';
-import { LogicalConnection } from '@/models/GraphModel';
-import { metersToPixels } from './geometryUtils';
+import { Room, WallBreak, isMetricRoom, isParcelBoundaryNode } from '@/models/RoomModel';
+import { LogicalConnection, getConnectionOpenings } from '@/models/GraphModel';
+import { metersToPixels, PIXELS_PER_METER } from './geometryUtils';
+import { calculateRoomPolygon } from './polygonSolver';
 
 interface PlacedBox {
   x: number;
   y: number;
   width: number;
   height: number;
+  isFixed?: boolean;
+}
+
+/**
+ * Deduce y aplica automáticamente los quiebres de pared (WallBreaks) en los ambientes
+ * a partir de las propiedades de invasión configuradas en las aristas/muros compartidos.
+ * Los límites de parcela y medianeras son inmutables y no admiten invasión.
+ */
+export function applyInvasionsToRoomGeometries(
+  rooms: Room[],
+  connections: LogicalConnection[]
+): Room[] {
+  const metricRooms = rooms.filter(isMetricRoom);
+
+  // Mapa de quiebres calculados por roomId
+  const breaksByRoom = new Map<string, WallBreak[]>();
+  metricRooms.forEach((r) => breaksByRoom.set(r.id, []));
+
+  for (const conn of connections) {
+    if (!conn.invasion || conn.invasion.type === 'none') {
+      continue;
+    }
+
+    const isSourceInvader = conn.invasion.type === 'source_invades_target';
+    const invaderId = isSourceInvader ? conn.sourceRoomId : conn.targetRoomId;
+    const invadedId = isSourceInvader ? conn.targetRoomId : conn.sourceRoomId;
+
+    const rawInvader = rooms.find((r) => r.id === invaderId);
+    const rawInvaded = rooms.find((r) => r.id === invadedId);
+    if (!rawInvader || !rawInvaded) continue;
+
+    // Los límites de parcela y medianeras NO se pueden invadir (restricción física / código civil)
+    if (isParcelBoundaryNode(rawInvader) || isParcelBoundaryNode(rawInvaded)) {
+      continue;
+    }
+
+    const invaderRoom = metricRooms.find((r) => r.id === invaderId);
+    const invadedRoom = metricRooms.find((r) => r.id === invadedId);
+    if (!invaderRoom || !invadedRoom) continue;
+
+    const rawInvaderWall = isSourceInvader
+      ? conn.sourceWall || 'north'
+      : conn.targetWall || 'south';
+    const rawInvadedWall = isSourceInvader
+      ? conn.targetWall || 'south'
+      : conn.sourceWall || 'north';
+
+    const invaderWall: 'north' | 'south' | 'east' | 'west' =
+      rawInvaderWall === 'ceiling' ? 'north' : rawInvaderWall;
+    const invadedWall: 'north' | 'south' | 'east' | 'west' =
+      rawInvadedWall === 'ceiling' ? 'south' : rawInvadedWall;
+    const isHoriz = invaderWall === 'north' || invaderWall === 'south';
+
+    // Determinar longitud del tramo compartido en metros
+    const rW_invader = invaderRoom.dimensions.width;
+    const rH_invader = invaderRoom.dimensions.length;
+    const rW_invaded = invadedRoom.dimensions.width;
+    const rH_invaded = invadedRoom.dimensions.length;
+
+    const rLeft_invader = invaderRoom.canvasPosition.x / PIXELS_PER_METER;
+    const rTop_invader = invaderRoom.canvasPosition.y / PIXELS_PER_METER;
+    const rLeft_invaded = invadedRoom.canvasPosition.x / PIXELS_PER_METER;
+    const rTop_invaded = invadedRoom.canvasPosition.y / PIXELS_PER_METER;
+
+    let sGlobal = 0;
+    let eGlobal = 0;
+    let invaderWallOrigin = 0;
+    let invadedWallOrigin = 0;
+    const invaderWallLen = isHoriz ? rW_invader : rH_invader;
+    const invadedWallLen = isHoriz ? rW_invaded : rH_invaded;
+
+    if (isHoriz) {
+      sGlobal = Math.max(rLeft_invader, rLeft_invaded);
+      eGlobal = Math.min(rLeft_invader + rW_invader, rLeft_invaded + rW_invaded);
+      invaderWallOrigin = rLeft_invader;
+      invadedWallOrigin = rLeft_invaded;
+    } else {
+      sGlobal = Math.max(rTop_invader, rTop_invaded);
+      eGlobal = Math.min(rTop_invader + rH_invader, rTop_invaded + rH_invaded);
+      invaderWallOrigin = rTop_invader;
+      invadedWallOrigin = rTop_invaded;
+    }
+
+    let sharedLen = eGlobal - sGlobal;
+    if (sharedLen <= 0.1) {
+      sharedLen = Math.min(invaderWallLen, invadedWallLen);
+      sGlobal = invaderWallOrigin;
+      eGlobal = invaderWallOrigin + sharedLen;
+    }
+
+    const breakWidth =
+      conn.invasion.widthMeters && conn.invasion.widthMeters > 0
+        ? Math.min(sharedLen, conn.invasion.widthMeters)
+        : sharedLen;
+
+    // Deducción automática de posición del quiebre
+    let offsetInShared = 0;
+    const openings = getConnectionOpenings(conn);
+    if (openings.length > 0 && breakWidth < sharedLen) {
+      const firstOp = openings[0];
+      const opRatio = firstOp.offsetRatio ?? 0.5;
+      if (opRatio < 0.5) {
+        offsetInShared = sharedLen - breakWidth;
+      } else {
+        offsetInShared = 0;
+      }
+    } else if (breakWidth < sharedLen) {
+      offsetInShared = (sharedLen - breakWidth) / 2;
+    }
+
+    const breakGlobalStart = sGlobal + offsetInShared;
+    const invaderStartLocal = Math.max(
+      0,
+      Math.min(invaderWallLen - breakWidth, breakGlobalStart - invaderWallOrigin)
+    );
+    const invadedStartLocal = Math.max(
+      0,
+      Math.min(invadedWallLen - breakWidth, breakGlobalStart - invadedWallOrigin)
+    );
+
+    let depth = conn.invasion.depthMeters || 0;
+    if (depth <= 0) {
+      // Deducir automáticamente por discrepancia geométrica de cotas perpendiculares
+      const diffLength = Math.abs(rH_invader - rH_invaded);
+      const diffWidth = Math.abs(rW_invader - rW_invaded);
+      const cotaDiff = isHoriz ? diffLength : diffWidth;
+      if (cotaDiff > 0.1 && cotaDiff <= 2.0) {
+        depth = Number(cotaDiff.toFixed(2));
+      } else {
+        // Módulo estándar de placard / nicho (0.60m)
+        depth = 0.60;
+      }
+    }
+
+    // Quiebre en el recinto INVASOR (+depth = extiende hacia afuera)
+    const invaderBreak: WallBreak = {
+      id: `wb-invader-${conn.id}`,
+      wall: invaderWall,
+      startOffsetMeters: Number(invaderStartLocal.toFixed(2)),
+      widthMeters: Number(breakWidth.toFixed(2)),
+      depthMeters: Number(depth.toFixed(2)),
+      label: `Invasión hacia ${invadedRoom.name}`
+    };
+
+    // Quiebre en el recinto INVADIDO (-depth = retranqueo / hueco interior)
+    const invadedBreak: WallBreak = {
+      id: `wb-invaded-${conn.id}`,
+      wall: invadedWall,
+      startOffsetMeters: Number(invadedStartLocal.toFixed(2)),
+      widthMeters: Number(breakWidth.toFixed(2)),
+      depthMeters: Number((-depth).toFixed(2)),
+      label: `Cedido a ${invaderRoom.name}`
+    };
+
+    breaksByRoom.get(invaderId)?.push(invaderBreak);
+    breaksByRoom.get(invadedId)?.push(invadedBreak);
+  }
+
+  return rooms.map((room) => {
+    if (room.isAccessPoint || room.isTechnicalIsland) return room;
+
+    const computedBreaks = breaksByRoom.get(room.id) || [];
+    const updatedGeometry = {
+      ...(room.geometry || { mode: 'rectangle' as const }),
+      wallBreaks: computedBreaks
+    };
+
+    const tempRoom: Room = {
+      ...room,
+      geometry: updatedGeometry
+    };
+
+    const computedVertices = calculateRoomPolygon(tempRoom);
+
+    return {
+      ...room,
+      geometry: {
+        ...updatedGeometry,
+        computedVertices
+      }
+    };
+  });
 }
 
 /**
@@ -26,38 +214,31 @@ export function solveAutoAssembly(
 ): Room[] {
   if (rooms.length === 0) return [];
 
+  const metricRooms = rooms.filter(isMetricRoom);
+  const nonMetricRooms = rooms.filter((r) => !isMetricRoom(r));
+
+  if (metricRooms.length === 0) {
+    return rooms;
+  }
+
   const placed = new Map<string, PlacedBox>();
-  const wallOffsets = new Map<
-    string,
-    { north: number; south: number; east: number; west: number }
-  >();
 
-  const getOffsets = (id: string) => {
-    if (!wallOffsets.has(id)) {
-      wallOffsets.set(id, { north: 0, south: 0, east: 0, west: 0 });
-    }
-    return wallOffsets.get(id)!;
-  };
-
-  const metricRooms = rooms.filter((r) => !r.isAccessPoint && !r.isTechnicalIsland);
-  const nonMetricRooms = rooms.filter((r) => r.isAccessPoint || r.isTechnicalIsland);
-
-  // 1. SELECCIONAR NODO RAÍZ / ANCLAJE (Living o el recinto con más conexiones)
-  let rootRoom =
+  // 1. SELECCIONAR NODO RAÍZ / ANCLAJE (Living o el recinto con mayor número de conexiones métricas)
+  const rootRoom =
     metricRooms.find((r) => r.type === 'living') ||
     metricRooms.reduce((best, current) => {
       const currentConns = connections.filter(
-        (c) => c.sourceRoomId === current.id || c.targetRoomId === current.id
+        (c) =>
+          (c.sourceRoomId === current.id || c.targetRoomId === current.id) &&
+          metricRooms.some((m) => m.id === (c.sourceRoomId === current.id ? c.targetRoomId : c.sourceRoomId))
       ).length;
       const bestConns = connections.filter(
-        (c) => c.sourceRoomId === best.id || c.targetRoomId === best.id
+        (c) =>
+          (c.sourceRoomId === best.id || c.targetRoomId === best.id) &&
+          metricRooms.some((m) => m.id === (c.sourceRoomId === best.id ? c.targetRoomId : c.sourceRoomId))
       ).length;
       return currentConns > bestConns ? current : best;
-    }, metricRooms[0] || rooms[0]);
-
-  if (!rootRoom) {
-    return rooms;
-  }
+    }, metricRooms[0]);
 
   const rootW = metersToPixels(rootRoom.dimensions?.width || 3);
   const rootH = metersToPixels(rootRoom.dimensions?.length || 2.5);
@@ -66,83 +247,105 @@ export function solveAutoAssembly(
     x: origin.x,
     y: origin.y,
     width: rootW,
-    height: rootH
+    height: rootH,
+    isFixed: true
   });
 
-  // 2. PROPAGACIÓN TOPOLÓGICA BREADTH-FIRST (BFS)
+  // 2. PROPAGACIÓN TOPOLÓGICA BREADTH-FIRST (BFS) CON EMPAQUETADO SECUENCIAL POR PARED
   const queue: string[] = [rootRoom.id];
   const visited = new Set<string>([rootRoom.id]);
 
   while (queue.length > 0) {
     const currentId = queue.shift()!;
     const currentBox = placed.get(currentId)!;
-    const currentWallOffsets = getOffsets(currentId);
 
-    // Buscar conexiones de este ambiente con otros ambientes métricos no posicionados
-    const roomConns = connections.filter(
-      (c) => c.sourceRoomId === currentId || c.targetRoomId === currentId
-    );
+    // Conexiones métricas no visitadas desde este ambiente
+    const unvisitedConns = connections.filter((c) => {
+      const isSource = c.sourceRoomId === currentId;
+      const otherId = isSource ? c.targetRoomId : c.sourceRoomId;
+      return (
+        (c.sourceRoomId === currentId || c.targetRoomId === currentId) &&
+        !visited.has(otherId) &&
+        metricRooms.some((r) => r.id === otherId)
+      );
+    });
 
-    for (const conn of roomConns) {
+    // Agrupar ambientes hijos por la pared de contacto del padre
+    const wallGroups: Record<'north' | 'south' | 'east' | 'west', Array<{ targetRoom: Room; conn: LogicalConnection }>> = {
+      north: [],
+      south: [],
+      east: [],
+      west: []
+    };
+
+    for (const conn of unvisitedConns) {
       const isSource = conn.sourceRoomId === currentId;
-      const targetId = isSource ? conn.targetRoomId : conn.sourceRoomId;
-      const targetRoom = metricRooms.find((r) => r.id === targetId);
+      const otherId = isSource ? conn.targetRoomId : conn.sourceRoomId;
+      const targetRoom = metricRooms.find((r) => r.id === otherId);
+      if (!targetRoom || visited.has(otherId)) continue;
 
-      if (!targetRoom || visited.has(targetId)) continue;
+      const rawMyWall = isSource ? conn.sourceWall || 'north' : conn.targetWall || 'south';
+      const myWall: 'north' | 'south' | 'east' | 'west' =
+        rawMyWall === 'ceiling' ? 'north' : rawMyWall;
 
-      const myWall = isSource ? conn.sourceWall : conn.targetWall;
-      const targetWall = isSource ? conn.targetWall : conn.sourceWall;
-      if (!myWall || !targetWall) continue;
+      wallGroups[myWall].push({ targetRoom, conn });
+      visited.add(otherId);
+    }
 
-      const targetW = metersToPixels(targetRoom.dimensions?.width || 3);
-      const targetH = metersToPixels(targetRoom.dimensions?.length || 2.5);
+    // A. Empaquetar hijos en la Pared NORTE (Arriba de este ambiente)
+    let northX = currentBox.x;
+    for (const item of wallGroups.north) {
+      const tW = metersToPixels(item.targetRoom.dimensions?.width || 3);
+      const tH = metersToPixels(item.targetRoom.dimensions?.length || 2.5);
+      const tX = northX;
+      const tY = currentBox.y - tH;
 
-      let targetX = currentBox.x;
-      let targetY = currentBox.y;
+      placed.set(item.targetRoom.id, { x: tX, y: tY, width: tW, height: tH });
+      northX += tW;
+      queue.push(item.targetRoom.id);
+    }
 
-      // Calcular coordenadas exactas de encastre según el par de paredes adyacentes
-      if (myWall === 'north' && targetWall === 'south') {
-        targetY = currentBox.y - targetH;
-        targetX = currentBox.x + currentWallOffsets.north;
-        currentWallOffsets.north += targetW;
-      } else if (myWall === 'south' && targetWall === 'north') {
-        targetY = currentBox.y + currentBox.height;
-        targetX = currentBox.x + currentWallOffsets.south;
-        currentWallOffsets.south += targetW;
-      } else if (myWall === 'east' && targetWall === 'west') {
-        targetX = currentBox.x + currentBox.width;
-        targetY = currentBox.y + currentWallOffsets.east;
-        currentWallOffsets.east += targetH;
-      } else if (myWall === 'west' && targetWall === 'east') {
-        targetX = currentBox.x - targetW;
-        targetY = currentBox.y + currentWallOffsets.west;
-        currentWallOffsets.west += targetH;
-      } else {
-        // En caso de paredes no estándar, alinear por proximidad
-        if (myWall === 'north') {
-          targetY = currentBox.y - targetH;
-        } else if (myWall === 'south') {
-          targetY = currentBox.y + currentBox.height;
-        } else if (myWall === 'east') {
-          targetX = currentBox.x + currentBox.width;
-        } else if (myWall === 'west') {
-          targetX = currentBox.x - targetW;
-        }
-      }
+    // B. Empaquetar hijos en la Pared SUR (Abajo de este ambiente)
+    let southX = currentBox.x;
+    for (const item of wallGroups.south) {
+      const tW = metersToPixels(item.targetRoom.dimensions?.width || 3);
+      const tH = metersToPixels(item.targetRoom.dimensions?.length || 2.5);
+      const tX = southX;
+      const tY = currentBox.y + currentBox.height;
 
-      placed.set(targetId, {
-        x: targetX,
-        y: targetY,
-        width: targetW,
-        height: targetH
-      });
+      placed.set(item.targetRoom.id, { x: tX, y: tY, width: tW, height: tH });
+      southX += tW;
+      queue.push(item.targetRoom.id);
+    }
 
-      visited.add(targetId);
-      queue.push(targetId);
+    // C. Empaquetar hijos en la Pared ESTE (Derecha de este ambiente)
+    let eastY = currentBox.y;
+    for (const item of wallGroups.east) {
+      const tW = metersToPixels(item.targetRoom.dimensions?.width || 3);
+      const tH = metersToPixels(item.targetRoom.dimensions?.length || 2.5);
+      const tX = currentBox.x + currentBox.width;
+      const tY = eastY;
+
+      placed.set(item.targetRoom.id, { x: tX, y: tY, width: tW, height: tH });
+      eastY += tH;
+      queue.push(item.targetRoom.id);
+    }
+
+    // D. Empaquetar hijos en la Pared OESTE (Izquierda de este ambiente)
+    let westY = currentBox.y;
+    for (const item of wallGroups.west) {
+      const tW = metersToPixels(item.targetRoom.dimensions?.width || 3);
+      const tH = metersToPixels(item.targetRoom.dimensions?.length || 2.5);
+      const tX = currentBox.x - tW;
+      const tY = westY;
+
+      placed.set(item.targetRoom.id, { x: tX, y: tY, width: tW, height: tH });
+      westY += tH;
+      queue.push(item.targetRoom.id);
     }
   }
 
-  // 3. RECINTOS MÉTRICOS NO ALCANZADOS (Islas métricas desconectadas)
+  // 3. RECINTOS MÉTRICOS DESCONECTADOS (Islas métricas no enlazadas)
   let unreachedOffset = 0;
   for (const r of metricRooms) {
     if (!placed.has(r.id)) {
@@ -154,14 +357,60 @@ export function solveAutoAssembly(
         width: rW,
         height: rH
       });
-      unreachedOffset += rH + 40;
+      unreachedOffset += rH + 30;
     }
   }
 
-  // 4. POSICIONAR PUNTOS DE ACCESO Y PUNTOS EXTERIORES (Nubes perimetrales)
+  // 4. ALINEACIÓN COLINEAL PERIMETRAL POR LÍMITES DE PARCELA Y MEDIANERAS
+  const boundaryRooms = rooms.filter(isParcelBoundaryNode);
+  for (const bound of boundaryRooms) {
+    const boundConns = connections.filter(
+      (c) => c.sourceRoomId === bound.id || c.targetRoomId === bound.id
+    );
+    const connectedMetricRoomIds: string[] = [];
+    boundConns.forEach((c) => {
+      const otherId = c.sourceRoomId === bound.id ? c.targetRoomId : c.sourceRoomId;
+      if (placed.has(otherId) && metricRooms.some((r) => r.id === otherId)) {
+        connectedMetricRoomIds.push(otherId);
+      }
+    });
+
+    if (connectedMetricRoomIds.length >= 1) {
+      if (bound.type === 'limit_medianera_izq') {
+        const minLeftX = Math.min(...connectedMetricRoomIds.map((id) => placed.get(id)!.x));
+        connectedMetricRoomIds.forEach((id) => {
+          const b = placed.get(id)!;
+          b.x = minLeftX;
+        });
+      } else if (bound.type === 'limit_medianera_der') {
+        const maxRightX = Math.max(
+          ...connectedMetricRoomIds.map((id) => placed.get(id)!.x + placed.get(id)!.width)
+        );
+        connectedMetricRoomIds.forEach((id) => {
+          const b = placed.get(id)!;
+          b.x = maxRightX - b.width;
+        });
+      } else if (bound.type === 'limit_frente_lm') {
+        const maxBottomY = Math.max(
+          ...connectedMetricRoomIds.map((id) => placed.get(id)!.y + placed.get(id)!.height)
+        );
+        connectedMetricRoomIds.forEach((id) => {
+          const b = placed.get(id)!;
+          b.y = maxBottomY - b.height;
+        });
+      } else if (bound.type === 'limit_fondo' || bound.type === 'limit_patio') {
+        const minTopY = Math.min(...connectedMetricRoomIds.map((id) => placed.get(id)!.y));
+        connectedMetricRoomIds.forEach((id) => {
+          const b = placed.get(id)!;
+          b.y = minTopY;
+        });
+      }
+    }
+  }
+
+  // 5. POSICIONAR PUNTOS DE ACCESO Y PUNTOS EXTERIORES (Nubes perimetrales)
   for (const nm of nonMetricRooms) {
     if (nm.isTechnicalIsland) {
-      // Islas técnicas aisladas (ej. Sala de Medidores) se ubican en el sector técnico superior
       placed.set(nm.id, {
         x: 40,
         y: 40,
@@ -171,7 +420,6 @@ export function solveAutoAssembly(
       continue;
     }
 
-    // Puntos de acceso con conexión a un ambiente métrico
     const conn = connections.find(
       (c) => c.sourceRoomId === nm.id || c.targetRoomId === nm.id
     );
@@ -184,7 +432,6 @@ export function solveAutoAssembly(
       if (metricBox) {
         const myWall = isSource ? conn.sourceWall : conn.targetWall;
         if (myWall === 'east') {
-          // El punto de acceso está al Oeste del recinto
           placed.set(nm.id, {
             x: metricBox.x - 180 - 30,
             y: metricBox.y + metricBox.height / 2 - 50,
@@ -192,7 +439,6 @@ export function solveAutoAssembly(
             height: 100
           });
         } else if (myWall === 'west') {
-          // El punto de acceso está al Este del recinto
           placed.set(nm.id, {
             x: metricBox.x + metricBox.width + 30,
             y: metricBox.y + metricBox.height / 2 - 50,
@@ -200,7 +446,6 @@ export function solveAutoAssembly(
             height: 100
           });
         } else if (myWall === 'south') {
-          // El punto de acceso está al Norte del recinto
           placed.set(nm.id, {
             x: metricBox.x + metricBox.width / 2 - 90,
             y: metricBox.y - 100 - 30,
@@ -208,7 +453,6 @@ export function solveAutoAssembly(
             height: 100
           });
         } else {
-          // Al Sur del recinto
           placed.set(nm.id, {
             x: metricBox.x + metricBox.width / 2 - 90,
             y: metricBox.y + metricBox.height + 30,
@@ -220,7 +464,6 @@ export function solveAutoAssembly(
       }
     }
 
-    // Punto de acceso sin conexión: posición por defecto
     placed.set(nm.id, {
       x: 40,
       y: 300,
@@ -229,7 +472,7 @@ export function solveAutoAssembly(
     });
   }
 
-  // 5. NORMALIZACIÓN Y CENTRADO DE COORDENADAS (Basado en la planta métrica)
+  // 6. NORMALIZACIÓN Y CENTRADO DE COORDENADAS
   let minX = Infinity;
   let minY = Infinity;
 
@@ -249,8 +492,8 @@ export function solveAutoAssembly(
   const shiftX = targetMarginX - minX;
   const shiftY = targetMarginY - minY;
 
-  // 6. GENERAR COPIA INMUTABLE DE ROOMS CON COORDENADAS ACTUALIZADAS
-  return rooms.map((room) => {
+  // 7. GENERAR COPIA CON COORDENADAS ACTUALIZADAS
+  const positionedRooms = rooms.map((room) => {
     const box = placed.get(room.id);
     if (!box) return room;
 
@@ -263,4 +506,7 @@ export function solveAutoAssembly(
       updatedAt: new Date().toISOString()
     };
   });
+
+  // 8. DEDUCIR Y APLICAR AUTOMÁTICAMENTE LOS QUIEBRES / INVASIONES DE MURO
+  return applyInvasionsToRoomGeometries(positionedRooms, connections);
 }
