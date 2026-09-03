@@ -285,6 +285,11 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
 
   const handleWallPointerClick = (e: any, wall: WallOrientation) => {
     e.cancelBubble = true;
+    if (!isSelected) {
+      // Si el ambiente no está seleccionado, el primer toque lo selecciona en lugar de disparar un diálogo modal
+      onSelect(room.id);
+      return;
+    }
     if (!onWallClick) return;
 
     const stage = e.target.getStage();

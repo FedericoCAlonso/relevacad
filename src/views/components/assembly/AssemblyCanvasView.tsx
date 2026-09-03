@@ -52,6 +52,7 @@ import { canRoomsBeMerged } from '@/viewmodels/utils/booleanRoomUnion';
 import { CONNECTION_TYPE_CATALOG, LogicalConnection } from '@/models/GraphModel';
 import { WallOrientation, isMetricRoom, isParcelBoundaryNode } from '@/models/RoomModel';
 import { RoomAssemblyShape } from './RoomAssemblyShape';
+import { MobileFloatingToolColumn } from './MobileFloatingToolColumn';
 import { EditOpeningDialog } from '../topology/EditOpeningDialog';
 import { RoomDetailDialog } from '../topology/RoomDetailDialog';
 
@@ -796,8 +797,8 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
             />
           </Tooltip>
 
-          {/* Estado y accesos directos al ambiente seleccionado */}
-          {selectedRoom && (
+          {/* Estado y accesos directos al ambiente seleccionado (Desktop) */}
+          {selectedRoom && !isMobile && (
             <>
               <Box sx={{ height: 18, width: 1, bgcolor: '#cbd5e1' }} />
               <Chip
@@ -1310,6 +1311,41 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
             <ResetViewIcon fontSize="small" />
           </IconButton>
         </Paper>
+      )}
+
+      {/* 📱 Columna Flotante y Movible para Celular (Bajo el pulgar, 0% bloqueo de lienzo) */}
+      {isMobile && selectedRoom && (
+        <MobileFloatingToolColumn
+          selectedRoom={selectedRoom}
+          adjacentNeighbor={adjacentNeighbor}
+          adjacentConn={adjacentConn}
+          snapSuggestions={snapSuggestions}
+          canMergeWithNeighbor={canMergeWithNeighbor}
+          onToggleVirtualBoundary={() => {
+            if (!adjacentConn) return;
+            const nextVirtual = !(adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual');
+            updateConnection(adjacentConn.id, {
+              isVirtualBoundary: nextVirtual,
+              type: nextVirtual ? 'limite_virtual' : 'pared_comun',
+              label: nextVirtual ? '🚪 Límite Abierto (Integrado)' : '🧱 Muro Compartido',
+              wallProperties: adjacentConn.wallProperties
+                ? {
+                    ...adjacentConn.wallProperties,
+                    isVirtualBoundary: nextVirtual,
+                    thicknessMeters: nextVirtual ? 0 : (adjacentConn.wallProperties.thicknessMeters || 0.15)
+                  }
+                : undefined
+            });
+          }}
+          onMergeRooms={() => {
+            if (!selectedRoom || !adjacentNeighbor) return;
+            setMergeCustomName(`${selectedRoom.name} - ${adjacentNeighbor.name}`);
+            setMergeConfirmOpen(true);
+          }}
+          onOpenWallOpenings={() => handleWallClick(selectedRoom.id, 'north')}
+          onOpenDimensions={() => setDetailRoomId(selectedRoom.id)}
+          onDeselect={() => selectRoom(null)}
+        />
       )}
 
       {/* 🧱 Inspector Modal de Muro y Aberturas (Solo si el usuario pulsa Aberturas en la barra superior o hace clic en un muro) */}

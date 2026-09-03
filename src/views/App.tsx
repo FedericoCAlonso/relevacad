@@ -84,8 +84,8 @@ export const App: React.FC = () => {
         onClose={() => setShortcutsOpen(false)}
       />
 
-      {/* BottomSheet Táctil Deslizante para Edición Rápida en Smartphone */}
-      {isMobile && selectedRoom && activePhase !== 'parametrization' && (
+      {/* BottomSheet Táctil Deslizante para Edición Rápida en Smartphone (solo en modo presentación para no bloquear el lienzo) */}
+      {isMobile && selectedRoom && activePhase === 'presentation' && (
         <MobileRoomBottomSheet
           open={Boolean(selectedRoom)}
           onClose={() => selectRoom(null)}
