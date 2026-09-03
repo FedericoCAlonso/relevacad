@@ -23,6 +23,11 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
   useMediaQuery,
   useTheme
 } from '@mui/material';
@@ -36,12 +41,14 @@ import {
   MeetingRoom as DoorIcon,
   AccountTree as TopologyLinesIcon,
   Architecture as ArchPlanIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  CallMerge as MergeIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
 import { useSurveyStore } from '@/viewmodels/surveyStore';
 import { SnapGuideLine } from '@/viewmodels/utils/snappingCalculator';
 import { metersToPixels, PIXELS_PER_METER } from '@/viewmodels/utils/geometryUtils';
+import { canRoomsBeMerged } from '@/viewmodels/utils/booleanRoomUnion';
 import { CONNECTION_TYPE_CATALOG, LogicalConnection } from '@/models/GraphModel';
 import { WallOrientation, isMetricRoom, isParcelBoundaryNode } from '@/models/RoomModel';
 import { RoomAssemblyShape } from './RoomAssemblyShape';
@@ -161,6 +168,10 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
   const syncRoomWallAdjacencies = useSurveyStore((state) => state.syncRoomWallAdjacencies);
   const updateConnection = useSurveyStore((state) => state.updateConnection);
   const setSnapGuides = useSurveyStore((state) => state.setSnapGuides);
+  const mergeRooms = useSurveyStore((state) => state.mergeRooms);
+
+  const [mergeConfirmOpen, setMergeConfirmOpen] = useState(false);
+  const [mergeCustomName, setMergeCustomName] = useState('');
 
   // Conexión adyacente con vecino (si existe muro o límite común)
   const adjacentConn = useMemo(() => {
@@ -171,6 +182,20 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
       ) || null
     );
   }, [selectedRoomId, connections]);
+
+  const adjacentNeighbor = useMemo(() => {
+    if (!adjacentConn || !selectedRoomId) return null;
+    const neighborId =
+      adjacentConn.sourceRoomId === selectedRoomId
+        ? adjacentConn.targetRoomId
+        : adjacentConn.sourceRoomId;
+    return rooms.find((r) => r.id === neighborId) || null;
+  }, [adjacentConn, selectedRoomId, rooms]);
+
+  const canMergeWithNeighbor = useMemo(() => {
+    if (!selectedRoom || !adjacentNeighbor) return false;
+    return canRoomsBeMerged(selectedRoom, adjacentNeighbor);
+  }, [selectedRoom, adjacentNeighbor]);
 
   const selectedRoomWidthPx =
     selectedRoom && isMetricRoom(selectedRoom)
@@ -846,6 +871,34 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                 </Tooltip>
               )}
 
+              {/* 🔗 Botón 1-toque: Fusión Booleana de Ambientes en 'L' */}
+              {adjacentNeighbor && canMergeWithNeighbor && (
+                <Tooltip title={`Unir con ${adjacentNeighbor.name} en un único ambiente continuo (en 'L')`}>
+                  <Chip
+                    icon={<MergeIcon sx={{ fontSize: '1rem !important' }} />}
+                    label={`🔗 Fusionar con ${adjacentNeighbor.name}`}
+                    size="small"
+                    color="secondary"
+                    variant="outlined"
+                    onClick={() => {
+                      setMergeCustomName(`${selectedRoom.name} - ${adjacentNeighbor.name}`);
+                      setMergeConfirmOpen(true);
+                    }}
+                    clickable
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.74rem',
+                      height: 28,
+                      borderColor: '#9333ea',
+                      color: '#9333ea',
+                      '&:hover': {
+                        backgroundColor: 'rgba(147, 51, 234, 0.08)'
+                      }
+                    }}
+                  />
+                </Tooltip>
+              )}
+
               {/* 🧲 Botones de alineación instantánea por Snap con 1 toque */}
               {snapSuggestions.map((sug) => (
                 <Tooltip key={sug.id} title="Alinear instantáneamente por snap con 1 toque">
@@ -1239,6 +1292,70 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
           roomId={detailRoomId}
         />
       )}
+
+      {/* 🔗 Modal de Confirmación: Fusión Booleana de Ambientes */}
+      <Dialog
+        open={mergeConfirmOpen}
+        onClose={() => setMergeConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 3, p: 1 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <MergeIcon sx={{ color: '#9333ea' }} />
+          Fusión Booleana de Ambientes
+        </DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Se combinarán <strong>{selectedRoom?.name}</strong> y{' '}
+            <strong>{adjacentNeighbor?.name}</strong> en un único ambiente continuo (geometría en 'L').
+          </Typography>
+
+          <TextField
+            label="Nombre del Ambiente Resultante"
+            fullWidth
+            size="small"
+            value={mergeCustomName}
+            onChange={(e) => setMergeCustomName(e.target.value)}
+            placeholder="Ej: Living - Comedor"
+            autoFocus
+          />
+
+          <Box sx={{ bgcolor: 'rgba(147, 51, 234, 0.06)', p: 1.5, borderRadius: 2, border: '1px dashed #9333ea' }}>
+            <Typography variant="caption" sx={{ display: 'block', color: '#7e22ce', fontWeight: 600 }}>
+              💡 ¿Qué sucederá con la arquitectura?
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              • El tabique divisorio interno desaparecerá por completo.<br />
+              • El nuevo espacio tendrá un único perímetro exterior continuo.<br />
+              • Las bocas eléctricas y canalizaciones se unificarán.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setMergeConfirmOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (selectedRoom && adjacentNeighbor) {
+                mergeRooms(selectedRoom.id, adjacentNeighbor.id, mergeCustomName.trim() || undefined);
+              }
+              setMergeConfirmOpen(false);
+            }}
+            sx={{
+              fontWeight: 700,
+              bgcolor: '#9333ea',
+              '&:hover': { bgcolor: '#7e22ce' }
+            }}
+          >
+            Confirmar Fusión
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

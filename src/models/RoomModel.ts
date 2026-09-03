@@ -71,7 +71,7 @@ export interface CornerAngleConstraints {
 }
 
 export interface RoomGeometry {
-  mode: 'rectangle' | 'independent_walls' | 'diagonal_triangulated';
+  mode: 'rectangle' | 'independent_walls' | 'diagonal_triangulated' | 'polygon';
   independentWalls?: IndependentWalls;
   diagonalSO_NE?: number; // Cota de diagonal desde esquina SO hacia NE (m)
   cornerConstraints?: CornerAngleConstraints;

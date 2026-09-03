@@ -102,6 +102,11 @@ export function calculateCornerAngles(vertices: Point2D[]): CornerAngles {
  * Orden de vértices: Recorrido horario iniciando en NW.
  */
 export function calculateRoomPolygon(room: Room): Point2D[] {
+  // Si el ambiente ya cuenta con vértices calculados (fusión booleana en L o geometría poligonal libre)
+  if (room.geometry?.computedVertices && room.geometry.computedVertices.length >= 3) {
+    return room.geometry.computedVertices;
+  }
+
   const width = room.dimensions.width || 3.0;
   const length = room.dimensions.length || 2.5;
 

@@ -35,6 +35,7 @@ import { SurveyQuestion } from '@/models/IncrementalSurveyModel';
 import { RelevamientoProyecto, Cliente, RumboCardinal } from '@/models/ProjectModel';
 import { saveProject, getProjectById, autoSaveActiveSession } from '@/db/database';
 import { downloadCotizadorIebaJSON } from '@/db/exportCotizadorIeba';
+import { mergeTwoRooms } from './utils/booleanRoomUnion';
 
 export type SurveyPhase =
   | 'architecture'
@@ -87,6 +88,7 @@ export interface SurveyState {
   updateRoom: (roomId: string, updates: Partial<Omit<Room, 'id'>>) => void;
   removeRoom: (roomId: string) => void;
   updateRoomTopologyPosition: (roomId: string, position: { x: number; y: number }) => void;
+  mergeRooms: (roomAId: string, roomBId: string, customName?: string) => Room | null;
 
   // Operaciones sobre Conexiones / Muros Compartidos y Aberturas
   connectRooms: (
@@ -1356,6 +1358,58 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
         r.id === roomId ? { ...r, topologyPosition: position } : r
       )
     }));
+  },
+
+  mergeRooms: (roomAId, roomBId, customName) => {
+    const state = get();
+    const roomA = state.rooms.find((r) => r.id === roomAId);
+    const roomB = state.rooms.find((r) => r.id === roomBId);
+    if (!roomA || !roomB) return null;
+
+    const merged = mergeTwoRooms(roomA, roomB, customName);
+    if (!merged) return null;
+
+    // Actualizar conexiones:
+    // 1. Eliminar conexiones internas entre roomA y roomB
+    // 2. Redirigir conexiones externas de roomA o roomB hacia merged.id
+    const updatedConnections = state.connections
+      .filter(
+        (c) =>
+          !(
+            (c.sourceRoomId === roomAId && c.targetRoomId === roomBId) ||
+            (c.sourceRoomId === roomBId && c.targetRoomId === roomAId)
+          )
+      )
+      .map((c) => {
+        let sId = c.sourceRoomId;
+        let tId = c.targetRoomId;
+        if (sId === roomAId || sId === roomBId) sId = merged.id;
+        if (tId === roomAId || tId === roomBId) tId = merged.id;
+        return {
+          ...c,
+          sourceRoomId: sId,
+          targetRoomId: tId
+        };
+      });
+
+    // Actualizar nodos eléctricos para que pertenezcan al nuevo merged.id
+    const updatedNodes = state.electricalNodes.map((n) => {
+      if (n.roomId === roomAId || n.roomId === roomBId) {
+        return { ...n, roomId: merged.id };
+      }
+      return n;
+    });
+
+    set((st) => ({
+      rooms: [...st.rooms.filter((r) => r.id !== roomAId && r.id !== roomBId), merged],
+      connections: updatedConnections,
+      electricalNodes: updatedNodes,
+      selectedRoomId: merged.id
+    }));
+
+    get().saveCurrentProjectToDB();
+    get().syncRoomWallAdjacencies(merged.id);
+    return merged;
   },
 
   connectRooms: (sourceRoomId, targetRoomId, type = 'puerta_estandar', label, sourceHandle, targetHandle, wallProperties) => {

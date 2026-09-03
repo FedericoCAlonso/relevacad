@@ -268,7 +268,8 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
   );
 
   const polyPointsPx = verticesMeters.flatMap((v) => [metersToPixels(v.x), metersToPixels(v.y)]);
-  const hasBreaks = (room.geometry?.wallBreaks || []).length > 0;
+  const isPolygonRoom = Boolean(room.geometry?.computedVertices && room.geometry.computedVertices.length > 4);
+  const hasBreaks = (room.geometry?.wallBreaks || []).length > 0 || isPolygonRoom;
 
   const isWLocked = room.dimensions.widthLocked ?? true;
   const isLLocked = room.dimensions.lengthLocked ?? true;
@@ -838,10 +839,24 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
         )}
 
         {/* 🧱 Muros Perimetrales con Espesores Individuales y Multi-Aberturas Colocalizadas */}
-        {renderWallWithOpenings(planimetry.north, widthPx, lengthPx)}
-        {renderWallWithOpenings(planimetry.south, widthPx, lengthPx)}
-        {renderWallWithOpenings(planimetry.west, widthPx, lengthPx)}
-        {renderWallWithOpenings(planimetry.east, widthPx, lengthPx)}
+        {isPolygonRoom ? (
+          <Line
+            points={polyPointsPx}
+            closed
+            stroke="#1e293b"
+            strokeWidth={wallThicknessPx}
+            lineJoin="miter"
+            strokeScaleEnabled={false}
+            listening={false}
+          />
+        ) : (
+          <>
+            {renderWallWithOpenings(planimetry.north, widthPx, lengthPx)}
+            {renderWallWithOpenings(planimetry.south, widthPx, lengthPx)}
+            {renderWallWithOpenings(planimetry.west, widthPx, lengthPx)}
+            {renderWallWithOpenings(planimetry.east, widthPx, lengthPx)}
+          </>
+        )}
 
         {/* Indicador de Selección Activa */}
         {isSelected &&
