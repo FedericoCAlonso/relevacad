@@ -18,6 +18,7 @@ export type LogicalConnectionType =
   | 'puerta_ventana'       // Puerta-Ventana Balcón / Galería
   // Vínculos Constructivos / Topológicos
   | 'pared_comun'          // Pared Común / Tabique Ciego Compartido
+  | 'limite_virtual'       // Límite Virtual / Concepto Abierto sin Muro Físico
   // Vínculos Técnicos
   | 'conduit_main'         // Cañería Troncal / Acometida
   | 'conduit_sec'          // Cañería Seccional
@@ -187,6 +188,7 @@ export interface SharedWallProperties {
   thicknessMeters: number;         // Espesor real del tabique en metros (ej: 0.10, 0.15, 0.20, 0.30)
   canChase?: boolean;              // ¿Permite canaleteado in situ?
   chasingMethod?: 'liviano' | 'pesado' | 'en_seco' | 'pre_encofrado' | 'a_la_vista';
+  isVirtualBoundary?: boolean;     // Límite virtual sin muro físico (Concepto abierto / integrado)
   notes?: string;
 }
 
@@ -220,6 +222,9 @@ export interface LogicalConnection {
   targetRoomId: string;
   type: LogicalConnectionType;
   label?: string;
+
+  // Límite Virtual sin Muro Físico (Concepto Abierto / Ambientes Espacialmente Integrados)
+  isVirtualBoundary?: boolean;
 
   // Propiedades del Muro Físico Compartido (BIM Space Boundary)
   wallProperties?: SharedWallProperties;
@@ -465,6 +470,17 @@ export const CONNECTION_TYPE_CATALOG: Record<string, ConnectionTypeMetadata> = {
     defaultWidth: 0,
     defaultHeight: 0
   },
+  limite_virtual: {
+    type: 'limite_virtual',
+    label: 'Límite Abierto / Integrado (Sin Muro)',
+    shortCode: 'LIM-ABIERTO',
+    emoji: '🚪',
+    color: '#0284c7',
+    strokeDasharray: '6,4',
+    isOpening: false,
+    defaultWidth: 0,
+    defaultHeight: 0
+  },
   conduit_main: {
     type: 'conduit_main',
     label: 'Troncal Cañería (Alimentador)',
@@ -532,6 +548,9 @@ export function getConnectionWallThickness(
   conn?: LogicalConnection,
   fallbackThicknessMeters: number = 0.10
 ): number {
+  if (conn?.isVirtualBoundary || conn?.wallProperties?.isVirtualBoundary || conn?.type === 'limite_virtual') {
+    return 0;
+  }
   if (conn?.wallProperties?.thicknessMeters && conn.wallProperties.thicknessMeters > 0) {
     return conn.wallProperties.thicknessMeters;
   }

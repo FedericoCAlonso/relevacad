@@ -33,6 +33,7 @@ import {
   AutoFixHigh as SnapIcon,
   AutoAwesome as AutoLayoutIcon,
   ViewInAr as WallIcon,
+  MeetingRoom as DoorIcon,
   AccountTree as TopologyLinesIcon,
   Architecture as ArchPlanIcon,
   Add as AddIcon
@@ -158,7 +159,18 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
   } = useSurveyViewModel();
 
   const syncRoomWallAdjacencies = useSurveyStore((state) => state.syncRoomWallAdjacencies);
+  const updateConnection = useSurveyStore((state) => state.updateConnection);
   const setSnapGuides = useSurveyStore((state) => state.setSnapGuides);
+
+  // Conexión adyacente con vecino (si existe muro o límite común)
+  const adjacentConn = useMemo(() => {
+    if (!selectedRoomId) return null;
+    return (
+      connections.find(
+        (c) => c.sourceRoomId === selectedRoomId || c.targetRoomId === selectedRoomId
+      ) || null
+    );
+  }, [selectedRoomId, connections]);
 
   const selectedRoomWidthPx =
     selectedRoom && isMetricRoom(selectedRoom)
@@ -767,6 +779,72 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                   sx={{ fontWeight: 600, fontSize: '0.74rem', height: 28 }}
                 />
               </Tooltip>
+
+              {/* 🚪 Botón 1-toque: Integrar ambientes (Concepto Abierto) vs Tabique Sólido */}
+              {adjacentConn && (
+                <Tooltip
+                  title={
+                    adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual'
+                      ? 'Restablecer tabique divisorio con muro constructivo sólido'
+                      : 'Integrar con ambiente contiguo (Concepto Abierto sin muro divisorio)'
+                  }
+                >
+                  <Chip
+                    icon={
+                      adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual' ? (
+                        <WallIcon sx={{ fontSize: '1rem !important' }} />
+                      ) : (
+                        <DoorIcon sx={{ fontSize: '1rem !important' }} />
+                      )
+                    }
+                    label={
+                      adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual'
+                        ? '🧱 Poner Muro'
+                        : '🚪 Integrar Espacio'
+                    }
+                    size="small"
+                    color={
+                      adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual'
+                        ? 'primary'
+                        : 'default'
+                    }
+                    variant={
+                      adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual'
+                        ? 'filled'
+                        : 'outlined'
+                    }
+                    onClick={() => {
+                      const nextVirtual = !(adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual');
+                      updateConnection(adjacentConn.id, {
+                        isVirtualBoundary: nextVirtual,
+                        type: nextVirtual ? 'limite_virtual' : 'pared_comun',
+                        label: nextVirtual ? '🚪 Límite Abierto (Integrado)' : '🧱 Muro Compartido',
+                        wallProperties: adjacentConn.wallProperties
+                          ? {
+                              ...adjacentConn.wallProperties,
+                              isVirtualBoundary: nextVirtual,
+                              thicknessMeters: nextVirtual ? 0 : (adjacentConn.wallProperties.thicknessMeters || 0.15)
+                            }
+                          : undefined
+                      });
+                    }}
+                    clickable
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.74rem',
+                      height: 28,
+                      borderColor:
+                        adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual'
+                          ? undefined
+                          : '#0284c7',
+                      color:
+                        adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual'
+                          ? '#ffffff'
+                          : '#0284c7'
+                    }}
+                  />
+                </Tooltip>
+              )}
 
               {/* 🧲 Botones de alineación instantánea por Snap con 1 toque */}
               {snapSuggestions.map((sug) => (

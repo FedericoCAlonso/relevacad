@@ -280,7 +280,38 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     roomWidthPx: number,
     roomLengthPx: number
   ) => {
-    const { wall, isShared, wallThicknessMeters, intervals } = wallInfo;
+    const { wall, isShared, isVirtualBoundary, wallThicknessMeters, intervals } = wallInfo;
+    const isVirtual = isVirtualBoundary || Boolean(
+      wallInfo.connection?.isVirtualBoundary ||
+      wallInfo.connection?.wallProperties?.isVirtualBoundary ||
+      wallInfo.connection?.type === 'limite_virtual'
+    );
+
+    if (isVirtual) {
+      // 🚪 LÍMITE VIRTUAL (Concepto Abierto / Espacio Integrado sin Muro Físico):
+      // No dibuja tabique constructivo sólido (#1e293b).
+      // Dibuja una línea de trazos sutil (CAD dash) que delimita funcionalmente ambos recintos.
+      let points: number[] = [];
+      if (wall === 'north') points = [0, 0, roomWidthPx, 0];
+      else if (wall === 'south') points = [0, roomLengthPx, roomWidthPx, roomLengthPx];
+      else if (wall === 'west') points = [0, 0, 0, roomLengthPx];
+      else if (wall === 'east') points = [roomWidthPx, 0, roomWidthPx, roomLengthPx];
+
+      return (
+        <Group key={`wall-virtual-${wall}`}>
+          <Line
+            points={points}
+            stroke="#0284c7"
+            strokeWidth={1.5}
+            dash={[6, 4]}
+            opacity={0.8}
+            listening={false}
+            perfectDrawEnabled={false}
+          />
+        </Group>
+      );
+    }
+
     const wallThickness = wallThicknessMeters * PIXELS_PER_METER;
     const wallLengthPx = wall === 'north' || wall === 'south' ? roomWidthPx : roomLengthPx;
     const isHoriz = wall === 'north' || wall === 'south';

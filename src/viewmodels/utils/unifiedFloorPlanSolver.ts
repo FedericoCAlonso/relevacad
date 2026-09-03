@@ -29,6 +29,7 @@ export interface WallOpeningInterval {
 export interface WallPlanimetryInfo {
   wall: WallOrientation;
   isShared: boolean;
+  isVirtualBoundary?: boolean;
   wallThicknessMeters: number;
   openings: OpeningProperties[];
   intervals: WallOpeningInterval[];
@@ -176,6 +177,24 @@ export function calculateRoomPlanimetry(
         wallThicknessMeters,
         openings: [],
         intervals: []
+      };
+    }
+
+    const isVirtual = Boolean(
+      conn.isVirtualBoundary ||
+      conn.wallProperties?.isVirtualBoundary ||
+      conn.type === 'limite_virtual'
+    );
+
+    if (isVirtual) {
+      return {
+        wall,
+        isShared: true,
+        isVirtualBoundary: true,
+        wallThicknessMeters: 0,
+        openings: [],
+        intervals: [],
+        connection: conn
       };
     }
 

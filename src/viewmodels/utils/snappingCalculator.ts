@@ -88,9 +88,19 @@ export function calculateMagneticSnapping(
 
     const topoThreshold = threshold * 2.0;
 
+    const isVirtual = Boolean(
+      conn.isVirtualBoundary ||
+      conn.wallProperties?.isVirtualBoundary ||
+      conn.type === 'limite_virtual'
+    );
+    const effWallPx = isVirtual ? 0 : wallThicknessPx;
+    const snapLabel = isVirtual
+      ? '🚪 Límite Abierto (Integrado)'
+      : `🧱 Muro Compartido (${wallThicknessCm} cm)`;
+
     // Encastre Horizontal (Este-Oeste): Dragged West con Target East
     if (myWall === 'west' && targetWall === 'east') {
-      const snapTargetX = targetRight + wallThicknessPx;
+      const snapTargetX = targetRight + effWallPx;
       const d = Math.abs(proposedPos.x - snapTargetX);
       if (d <= topoThreshold && d < minDeltaX) {
         minDeltaX = d;
@@ -99,17 +109,17 @@ export function calculateMagneticSnapping(
         bestXGuide = {
           id: `snap-topo-west-east-${target.id}`,
           orientation: 'vertical',
-          position: targetRight + wallThicknessPx / 2,
+          position: targetRight + effWallPx / 2,
           start: Math.min(proposedPos.y, targetTop) - 40,
           end: Math.max(proposedPos.y + draggedH, targetBottom) + 40,
           targetRoomId: target.id,
           isTopologicalAdjacency: true,
           snapType: 'topological',
-          label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
+          label: snapLabel
         };
       }
     } else if (myWall === 'east' && targetWall === 'west') {
-      const snapTargetX = targetLeft - draggedW - wallThicknessPx;
+      const snapTargetX = targetLeft - draggedW - effWallPx;
       const d = Math.abs(proposedPos.x - snapTargetX);
       if (d <= topoThreshold && d < minDeltaX) {
         minDeltaX = d;
@@ -118,20 +128,20 @@ export function calculateMagneticSnapping(
         bestXGuide = {
           id: `snap-topo-east-west-${target.id}`,
           orientation: 'vertical',
-          position: targetLeft - wallThicknessPx / 2,
+          position: targetLeft - effWallPx / 2,
           start: Math.min(proposedPos.y, targetTop) - 40,
           end: Math.max(proposedPos.y + draggedH, targetBottom) + 40,
           targetRoomId: target.id,
           isTopologicalAdjacency: true,
           snapType: 'topological',
-          label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
+          label: snapLabel
         };
       }
     }
 
     // Encastre Vertical (Norte-Sur): Dragged North con Target South
     if (myWall === 'north' && targetWall === 'south') {
-      const snapTargetY = targetBottom + wallThicknessPx;
+      const snapTargetY = targetBottom + effWallPx;
       const d = Math.abs(proposedPos.y - snapTargetY);
       if (d <= topoThreshold && d < minDeltaY) {
         minDeltaY = d;
@@ -140,17 +150,17 @@ export function calculateMagneticSnapping(
         bestYGuide = {
           id: `snap-topo-north-south-${target.id}`,
           orientation: 'horizontal',
-          position: targetBottom + wallThicknessPx / 2,
+          position: targetBottom + effWallPx / 2,
           start: Math.min(proposedPos.x, targetLeft) - 40,
           end: Math.max(proposedPos.x + draggedW, targetRight) + 40,
           targetRoomId: target.id,
           isTopologicalAdjacency: true,
           snapType: 'topological',
-          label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
+          label: snapLabel
         };
       }
     } else if (myWall === 'south' && targetWall === 'north') {
-      const snapTargetY = targetTop - draggedH - wallThicknessPx;
+      const snapTargetY = targetTop - draggedH - effWallPx;
       const d = Math.abs(proposedPos.y - snapTargetY);
       if (d <= topoThreshold && d < minDeltaY) {
         minDeltaY = d;
@@ -159,13 +169,13 @@ export function calculateMagneticSnapping(
         bestYGuide = {
           id: `snap-topo-south-north-${target.id}`,
           orientation: 'horizontal',
-          position: targetTop - wallThicknessPx / 2,
+          position: targetTop - effWallPx / 2,
           start: Math.min(proposedPos.x, targetLeft) - 40,
           end: Math.max(proposedPos.x + draggedW, targetRight) + 40,
           targetRoomId: target.id,
           isTopologicalAdjacency: true,
           snapType: 'topological',
-          label: `🧱 Muro Compartido (${wallThicknessCm} cm)`
+          label: snapLabel
         };
       }
     }

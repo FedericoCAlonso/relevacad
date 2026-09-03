@@ -1999,21 +1999,29 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
             existing.targetWall = contactFound.sourceWall;
           }
 
-          if (invasionDetected) {
-            const invType = isSourceMoved ? 'source_invades_target' : 'target_invades_source';
-            const newInv: WallInvasion = { ...invasionDetected, type: invType };
-            if (
-              existing.invasion?.type !== newInv.type ||
-              Math.abs((existing.invasion?.depthMeters || 0) - newInv.depthMeters!) > 0.04
-            ) {
-              existing.invasion = newInv;
-              existing.label = '🔲 Muro con Quiebre';
+          const isVirtual = Boolean(
+            existing.isVirtualBoundary ||
+            existing.wallProperties?.isVirtualBoundary ||
+            existing.type === 'limite_virtual'
+          );
+
+          if (!isVirtual) {
+            if (invasionDetected) {
+              const invType = isSourceMoved ? 'source_invades_target' : 'target_invades_source';
+              const newInv: WallInvasion = { ...invasionDetected, type: invType };
+              if (
+                existing.invasion?.type !== newInv.type ||
+                Math.abs((existing.invasion?.depthMeters || 0) - newInv.depthMeters!) > 0.04
+              ) {
+                existing.invasion = newInv;
+                existing.label = '🔲 Muro con Quiebre';
+                hasChanged = true;
+              }
+            } else if (existing.invasion && existing.invasion.type !== 'none') {
+              existing.invasion = { type: 'none' };
+              existing.label = '🧱 Muro Compartido';
               hasChanged = true;
             }
-          } else if (existing.invasion && existing.invasion.type !== 'none') {
-            existing.invasion = { type: 'none' };
-            existing.label = '🧱 Muro Compartido';
-            hasChanged = true;
           }
         } else {
           newConnections.push({
