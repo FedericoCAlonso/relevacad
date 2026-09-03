@@ -1956,12 +1956,12 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
             // Penetración horizontal (X)
             if (mLeft < oLeft) {
               contactFound = { sourceWall: 'east', targetWall: 'west' };
-              const depthMeters = Number(Math.max(0.1, (overlapX / PIXELS_PER_METER)).toFixed(2));
+              const depthMeters = Number(Math.max(0.1, ((overlapX + tPx) / PIXELS_PER_METER)).toFixed(2));
               const widthMeters = Number((overlapY / PIXELS_PER_METER).toFixed(2));
               invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
             } else {
               contactFound = { sourceWall: 'west', targetWall: 'east' };
-              const depthMeters = Number(Math.max(0.1, (overlapX / PIXELS_PER_METER)).toFixed(2));
+              const depthMeters = Number(Math.max(0.1, ((overlapX + tPx) / PIXELS_PER_METER)).toFixed(2));
               const widthMeters = Number((overlapY / PIXELS_PER_METER).toFixed(2));
               invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
             }
@@ -1969,12 +1969,12 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
             // Penetración vertical (Y)
             if (mTop < oTop) {
               contactFound = { sourceWall: 'south', targetWall: 'north' };
-              const depthMeters = Number(Math.max(0.1, (overlapY / PIXELS_PER_METER)).toFixed(2));
+              const depthMeters = Number(Math.max(0.1, ((overlapY + tPx) / PIXELS_PER_METER)).toFixed(2));
               const widthMeters = Number((overlapX / PIXELS_PER_METER).toFixed(2));
               invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
             } else {
               contactFound = { sourceWall: 'north', targetWall: 'south' };
-              const depthMeters = Number(Math.max(0.1, (overlapY / PIXELS_PER_METER)).toFixed(2));
+              const depthMeters = Number(Math.max(0.1, ((overlapY + tPx) / PIXELS_PER_METER)).toFixed(2));
               const widthMeters = Number((overlapX / PIXELS_PER_METER).toFixed(2));
               invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
             }

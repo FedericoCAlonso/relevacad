@@ -28,7 +28,9 @@ interface RoomAssemblyShapeProps {
   isSelected: boolean;
   wallThicknessPx: number;
   openings: LogicalConnection[];
+  isDragModeActive?: boolean;
   onSelect: (roomId: string) => void;
+  onDoubleTap?: (roomId: string) => void;
   onDragMove: (roomId: string, node: any) => void;
   onDragEnd: (roomId: string, node: any) => void;
 }
@@ -39,10 +41,25 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
   isSelected,
   wallThicknessPx,
   openings,
+  isDragModeActive,
   onSelect,
+  onDoubleTap,
   onDragMove,
   onDragEnd
 }) => {
+  const lastTapRef = useRef<number>(0);
+
+  const handlePointerTap = (e: any) => {
+    e.cancelBubble = true;
+    const now = Date.now();
+    if (now - lastTapRef.current < 350) {
+      lastTapRef.current = 0;
+      onDoubleTap?.(room.id);
+    } else {
+      lastTapRef.current = now;
+      onSelect(room.id);
+    }
+  };
   const innerRef = useRef<Konva.Group>(null);
   const isNonMetric = !isMetricRoom(room);
 
@@ -292,24 +309,6 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     const wallThickness = wallThicknessMeters * PIXELS_PER_METER;
     const wallLengthPx = wall === 'north' || wall === 'south' ? roomWidthPx : roomLengthPx;
     const isHoriz = wall === 'north' || wall === 'south';
-
-    // Si esta pared es la que avanza e invade al vecino contiguo, la pared común la dibuja
-    // el recinto receptor con su quiebre en Z, por lo que este recinto invasor no dibuja
-    // una pared plana exterior para no superponer un muro extra ni achicar al receptor un ancho de pared.
-    const isInvadingWall = (openings || []).some((c) => {
-      if (!c.invasion || c.invasion.type === 'none') return false;
-      if (c.invasion.type === 'source_invades_target' && c.sourceRoomId === room.id && c.sourceWall === wall) {
-        return true;
-      }
-      if (c.invasion.type === 'target_invades_source' && c.targetRoomId === room.id && c.targetWall === wall) {
-        return true;
-      }
-      return false;
-    });
-
-    if (isInvadingWall) {
-      return null;
-    }
 
     // 1. Si esta pared específica tiene un quiebre geométrico arquitectónico
     const wallBreak = (room.geometry?.wallBreaks || []).find((b) => b.wall === wall);
@@ -722,14 +721,16 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
       id={room.id}
       x={room.canvasPosition.x}
       y={room.canvasPosition.y}
-      draggable
-      onClick={(e) => {
+      draggable={Boolean(isDragModeActive)}
+      onClick={handlePointerTap}
+      onTap={handlePointerTap}
+      onDblClick={(e) => {
         e.cancelBubble = true;
-        onSelect(room.id);
+        onDoubleTap?.(room.id);
       }}
-      onTap={(e) => {
+      onDblTap={(e) => {
         e.cancelBubble = true;
-        onSelect(room.id);
+        onDoubleTap?.(room.id);
       }}
       onDragMove={(e) => {
         e.cancelBubble = true;
@@ -747,7 +748,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             points={polyPointsPx}
             closed
             fill={isDescubierto ? '#f0fdf4' : isSemicubierto ? '#fffdfa' : (room.color || '#f8fafc')}
-            opacity={isSelected ? 0.95 : 0.85}
+            opacity={1}
             shadowColor={isSelected ? '#00629e' : '#000000'}
             shadowBlur={isSelected ? 16 : 4}
             shadowOpacity={isSelected ? 0.35 : 0.08}
@@ -760,7 +761,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             width={widthPx}
             height={lengthPx}
             fill={isDescubierto ? '#f0fdf4' : isSemicubierto ? '#fffdfa' : (room.color || '#f8fafc')}
-            opacity={isSelected ? 0.95 : 0.85}
+            opacity={1}
             shadowColor={isSelected ? '#00629e' : '#000000'}
             shadowBlur={isSelected ? 16 : 4}
             shadowOpacity={isSelected ? 0.35 : 0.08}

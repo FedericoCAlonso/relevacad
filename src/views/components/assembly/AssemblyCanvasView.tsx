@@ -87,6 +87,15 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
 
   const syncRoomWallAdjacencies = useSurveyStore((state) => state.syncRoomWallAdjacencies);
   const setSnapGuides = useSurveyStore((state) => state.setSnapGuides);
+  const [dragModeRoomId, setDragModeRoomId] = useState<string | null>(null);
+
+  const handleRoomDoubleTap = useCallback(
+    (roomId: string) => {
+      setDragModeRoomId((prev) => (prev === roomId ? null : roomId));
+      selectRoom(roomId);
+    },
+    [selectRoom]
+  );
 
   const selectedRoomWidthPx =
     selectedRoom && isMetricRoom(selectedRoom)
@@ -684,6 +693,23 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                   sx={{ fontWeight: 600, fontSize: '0.74rem', height: 28 }}
                 />
               </Tooltip>
+              <Tooltip title="Doble toque en el ambiente o clic aquí para activar el arrastre y ajuste de paredes">
+                <Chip
+                  label={dragModeRoomId === selectedRoom.id ? '✓ Listo' : '🖐️ Arrastrar / Ajustar'}
+                  size="small"
+                  color={dragModeRoomId === selectedRoom.id ? 'success' : 'primary'}
+                  variant={dragModeRoomId === selectedRoom.id ? 'filled' : 'outlined'}
+                  onClick={() => setDragModeRoomId((prev) => (prev === selectedRoom.id ? null : selectedRoom.id))}
+                  clickable
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.74rem',
+                    height: 28,
+                    bgcolor: dragModeRoomId === selectedRoom.id ? '#16a34a' : undefined,
+                    color: dragModeRoomId === selectedRoom.id ? '#ffffff' : undefined
+                  }}
+                />
+              </Tooltip>
               <Tooltip title="Gestionar aberturas y muro">
                 <Chip
                   label="🚪 Aberturas"
@@ -773,6 +799,42 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         </Paper>
       )}
 
+      {/* Banner de Ayuda de Modo Arrastre Activo */}
+      {dragModeRoomId && (
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'absolute',
+            top: 50,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10,
+            px: 2,
+            py: 0.8,
+            borderRadius: 2,
+            bgcolor: '#0f172a',
+            color: '#38bdf8',
+            border: '1px solid #38bdf8',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            boxShadow: '0 4px 14px rgba(0,0,0,0.35)'
+          }}
+        >
+          <Typography variant="caption" fontWeight={700} sx={{ color: '#f8fafc', fontSize: '0.78rem' }}>
+            🖐️ Modo Arrastre Activo: Arrastrá el ambiente o sus paredes
+          </Typography>
+          <Chip
+            label="✓ Listo"
+            size="small"
+            color="success"
+            onClick={() => setDragModeRoomId(null)}
+            clickable
+            sx={{ fontWeight: 800, height: 22, fontSize: '0.72rem' }}
+          />
+        </Paper>
+      )}
+
       {/* Lienzo Konva 2D */}
       <Stage
         width={dimensions.width}
@@ -781,7 +843,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         scaleY={scale}
         x={stagePos.x}
         y={stagePos.y}
-        draggable
+        draggable={!dragModeRoomId}
         onDragEnd={(e) => {
           if (e.target === e.target.getStage()) {
             setStagePos({ x: e.target.x(), y: e.target.y() });
@@ -880,9 +942,11 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
               room={room}
               allRooms={rooms}
               isSelected={room.id === selectedRoomId}
+              isDragModeActive={dragModeRoomId === room.id || (!isMobile && selectedRoomId === room.id)}
               wallThicknessPx={wallThicknessPx}
               openings={connections}
               onSelect={selectRoom}
+              onDoubleTap={handleRoomDoubleTap}
               onDragMove={handleNodeDragMove}
               onDragEnd={handleNodeDragEnd}
             />
@@ -890,7 +954,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         </Layer>
 
         {/* Capa 3.5: Tiradores de Pared Completa con Snap Magnético (Arrastrar desde la pared) */}
-        {selectedRoom && isMetricRoom(selectedRoom) && (
+        {selectedRoom && isMetricRoom(selectedRoom) && (dragModeRoomId === selectedRoom.id || !isMobile) && (
           <Layer>
             {/* 🧱 Pared Este: Tocar y arrastrar la pared derecha para cambiar ancho con snap */}
             <Group
