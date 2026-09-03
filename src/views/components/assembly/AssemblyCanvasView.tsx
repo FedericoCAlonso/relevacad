@@ -100,7 +100,11 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
   const handleResizeWidthDragMove = useCallback(
     (e: any) => {
       if (!selectedRoom || !isMetricRoom(selectedRoom)) return;
-      const currentHandleX = e.target.x();
+      // Bloquear Y rígidamente a la posición del ambiente
+      e.target.y(selectedRoom.canvasPosition.y);
+      const currentHandleX = Math.max(selectedRoom.canvasPosition.x + 30, e.target.x());
+      e.target.x(currentHandleX);
+
       const sX = selectedRoom.canvasPosition.x;
       const sY = selectedRoom.canvasPosition.y;
       const sL = metersToPixels(selectedRoom.dimensions?.length || 2.5);
@@ -203,7 +207,11 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
   const handleResizeLengthDragMove = useCallback(
     (e: any) => {
       if (!selectedRoom || !isMetricRoom(selectedRoom)) return;
-      const currentHandleY = e.target.y();
+      // Bloquear X rígidamente a la posición del ambiente
+      e.target.x(selectedRoom.canvasPosition.x);
+      const currentHandleY = Math.max(selectedRoom.canvasPosition.y + 30, e.target.y());
+      e.target.y(currentHandleY);
+
       const sX = selectedRoom.canvasPosition.x;
       const sY = selectedRoom.canvasPosition.y;
       const sW = metersToPixels(selectedRoom.dimensions?.width || 3.0);
@@ -889,20 +897,12 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
               x={selectedRoom.canvasPosition.x + selectedRoomWidthPx}
               y={selectedRoom.canvasPosition.y}
               draggable
-              dragBoundFunc={(pos) => ({
-                x: Math.max(selectedRoom.canvasPosition.x + 30, pos.x),
-                y: selectedRoom.canvasPosition.y
-              })}
-              onMouseDown={(e) => { e.cancelBubble = true; }}
-              onTouchStart={(e) => { e.cancelBubble = true; }}
-              onClick={(e) => { e.cancelBubble = true; }}
-              onTap={(e) => { e.cancelBubble = true; }}
               onDragStart={(e) => { e.cancelBubble = true; }}
               onDragMove={handleResizeWidthDragMove}
               onDragEnd={handleResizeWidthDragEnd}
             >
-              {/* Zona de captura táctil a lo largo de toda la pared Este (36px de ancho) */}
-              <Rect x={-18} y={0} width={36} height={selectedRoomLengthPx} fill="transparent" />
+              {/* Zona de captura táctil a lo largo de toda la pared Este (48px de ancho) */}
+              <Rect x={-24} y={0} width={48} height={selectedRoomLengthPx} fill="transparent" />
               {/* Resaltado visual azul de la pared Este interactiva */}
               <Rect
                 x={-3}
@@ -941,20 +941,12 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
               x={selectedRoom.canvasPosition.x}
               y={selectedRoom.canvasPosition.y + selectedRoomLengthPx}
               draggable
-              dragBoundFunc={(pos) => ({
-                x: selectedRoom.canvasPosition.x,
-                y: Math.max(selectedRoom.canvasPosition.y + 30, pos.y)
-              })}
-              onMouseDown={(e) => { e.cancelBubble = true; }}
-              onTouchStart={(e) => { e.cancelBubble = true; }}
-              onClick={(e) => { e.cancelBubble = true; }}
-              onTap={(e) => { e.cancelBubble = true; }}
               onDragStart={(e) => { e.cancelBubble = true; }}
               onDragMove={handleResizeLengthDragMove}
               onDragEnd={handleResizeLengthDragEnd}
             >
-              {/* Zona de captura táctil a lo largo de toda la pared Sur (36px de alto) */}
-              <Rect x={0} y={-18} width={selectedRoomWidthPx} height={36} fill="transparent" />
+              {/* Zona de captura táctil a lo largo de toda la pared Sur (48px de alto) */}
+              <Rect x={0} y={-24} width={selectedRoomWidthPx} height={48} fill="transparent" />
               {/* Resaltado visual azul de la pared Sur interactiva */}
               <Rect
                 x={0}

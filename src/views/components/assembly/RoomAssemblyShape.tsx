@@ -293,6 +293,24 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     const wallLengthPx = wall === 'north' || wall === 'south' ? roomWidthPx : roomLengthPx;
     const isHoriz = wall === 'north' || wall === 'south';
 
+    // Si esta pared es la que avanza e invade al vecino contiguo, la pared común la dibuja
+    // el recinto receptor con su quiebre en Z, por lo que este recinto invasor no dibuja
+    // una pared plana exterior para no superponer un muro extra ni achicar al receptor un ancho de pared.
+    const isInvadingWall = (openings || []).some((c) => {
+      if (!c.invasion || c.invasion.type === 'none') return false;
+      if (c.invasion.type === 'source_invades_target' && c.sourceRoomId === room.id && c.sourceWall === wall) {
+        return true;
+      }
+      if (c.invasion.type === 'target_invades_source' && c.targetRoomId === room.id && c.targetWall === wall) {
+        return true;
+      }
+      return false;
+    });
+
+    if (isInvadingWall) {
+      return null;
+    }
+
     // 1. Si esta pared específica tiene un quiebre geométrico arquitectónico
     const wallBreak = (room.geometry?.wallBreaks || []).find((b) => b.wall === wall);
     if (wallBreak) {
