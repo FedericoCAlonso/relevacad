@@ -35,6 +35,7 @@ interface MobileFloatingToolColumnProps {
   adjacentConn?: LogicalConnection | null;
   snapSuggestions: Array<{ id: string; label: string; action: () => void }>;
   canMergeWithNeighbor?: boolean;
+  isSuperimposed?: boolean;
   onToggleVirtualBoundary: () => void;
   onMergeRooms: () => void;
   onOpenWallOpenings: () => void;
@@ -48,6 +49,7 @@ export const MobileFloatingToolColumn: React.FC<MobileFloatingToolColumnProps> =
   adjacentConn,
   snapSuggestions,
   canMergeWithNeighbor,
+  isSuperimposed,
   onToggleVirtualBoundary,
   onMergeRooms,
   onOpenWallOpenings,
@@ -179,8 +181,8 @@ export const MobileFloatingToolColumn: React.FC<MobileFloatingToolColumnProps> =
         </Tooltip>
       )}
 
-      {/* 🚪 / 🧱 Botón Integrar Espacio vs Muro */}
-      {adjacentConn && (
+      {/* 🚪 / 🧱 Botón Integrar Espacio vs Muro (Deshabilitado cuando hay superposición) */}
+      {adjacentConn && !isSuperimposed && (
         <Tooltip
           title={isVirtual ? 'Poner Muro (Restablecer tabique sólido)' : 'Integrar Espacio (Concepto Abierto)'}
           placement="left"
@@ -202,19 +204,23 @@ export const MobileFloatingToolColumn: React.FC<MobileFloatingToolColumnProps> =
         </Tooltip>
       )}
 
-      {/* 🔗 Botón Fusión en 'L' */}
+      {/* 🔗 Botón Fusión / Combinación de Ambientes */}
       {adjacentNeighbor && canMergeWithNeighbor && (
-        <Tooltip title={`Fusionar con ${adjacentNeighbor.name} en 'L'`} placement="left">
+        <Tooltip
+          title={isSuperimposed ? `Combinar ambientes solapados en 'L'` : `Fusionar con ${adjacentNeighbor.name} en 'L'`}
+          placement="left"
+        >
           <IconButton
             size="small"
             onClick={onMergeRooms}
             sx={{
-              bgcolor: 'rgba(147, 51, 234, 0.12)',
-              color: '#9333ea',
+              bgcolor: isSuperimposed ? '#9333ea' : 'rgba(147, 51, 234, 0.12)',
+              color: isSuperimposed ? '#ffffff' : '#9333ea',
               border: '1.5px solid #9333ea',
               width: 34,
               height: 34,
-              '&:hover': { bgcolor: 'rgba(147, 51, 234, 0.25)' }
+              boxShadow: isSuperimposed ? '0 2px 8px rgba(147, 51, 234, 0.5)' : undefined,
+              '&:hover': { bgcolor: isSuperimposed ? '#7e22ce' : 'rgba(147, 51, 234, 0.25)' }
             }}
           >
             <MergeIcon sx={{ fontSize: 18 }} />

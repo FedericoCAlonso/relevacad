@@ -317,7 +317,8 @@ export function calculateRoomPlanimetry(
       };
     }
 
-    const isVirtual = Boolean(
+    const hasInvasion = Boolean(conn?.invasion && conn.invasion.type !== 'none');
+    const isVirtual = !hasInvasion && Boolean(
       conn?.isVirtualBoundary ||
       conn?.wallProperties?.isVirtualBoundary ||
       conn?.type === 'limite_virtual'

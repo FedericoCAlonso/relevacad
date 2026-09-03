@@ -2073,9 +2073,14 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
             const newInv: WallInvasion = { ...matchedContact.invasion, type: invType };
             if (
               existing.invasion?.type !== newInv.type ||
-              Math.abs((existing.invasion?.depthMeters || 0) - newInv.depthMeters!) > 0.04
+              Math.abs((existing.invasion?.depthMeters || 0) - newInv.depthMeters!) > 0.04 ||
+              existing.isVirtualBoundary ||
+              existing.type === 'limite_virtual'
             ) {
               existing.invasion = newInv;
+              existing.isVirtualBoundary = false;
+              if (existing.type === 'limite_virtual') existing.type = 'pared_comun';
+              if (existing.wallProperties) existing.wallProperties.isVirtualBoundary = false;
               existing.label = '🔲 Muro con Quiebre';
               hasChanged = true;
             }

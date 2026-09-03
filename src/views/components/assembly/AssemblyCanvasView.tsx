@@ -198,6 +198,39 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
     return canRoomsBeMerged(selectedRoom, adjacentNeighbor);
   }, [selectedRoom, adjacentNeighbor]);
 
+  const isSuperimposed = useMemo(() => {
+    if (!selectedRoom || !adjacentNeighbor || !isMetricRoom(selectedRoom) || !isMetricRoom(adjacentNeighbor)) {
+      return false;
+    }
+    if (adjacentConn?.invasion && adjacentConn.invasion.type !== 'none') {
+      return true;
+    }
+    const sW = metersToPixels(selectedRoom.dimensions?.width || 3);
+    const sH = metersToPixels(selectedRoom.dimensions?.length || 2.5);
+    const nW = metersToPixels(adjacentNeighbor.dimensions?.width || 3);
+    const nH = metersToPixels(adjacentNeighbor.dimensions?.length || 2.5);
+
+    const sLeft = selectedRoom.canvasPosition.x;
+    const sRight = sLeft + sW;
+    const sTop = selectedRoom.canvasPosition.y;
+    const sBottom = sTop + sH;
+
+    const nLeft = adjacentNeighbor.canvasPosition.x;
+    const nRight = nLeft + nW;
+    const nTop = adjacentNeighbor.canvasPosition.y;
+    const nBottom = nTop + nH;
+
+    const interLeft = Math.max(sLeft, nLeft);
+    const interRight = Math.min(sRight, nRight);
+    const interTop = Math.max(sTop, nTop);
+    const interBottom = Math.min(sBottom, nBottom);
+
+    const overlapX = interRight - interLeft;
+    const overlapY = interBottom - interTop;
+
+    return overlapX > 4 && overlapY > 4;
+  }, [selectedRoom, adjacentNeighbor, adjacentConn]);
+
   const selectedRoomWidthPx =
     selectedRoom && isMetricRoom(selectedRoom)
       ? metersToPixels(selectedRoom.dimensions?.width || 3.0)
@@ -830,8 +863,8 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                 />
               </Tooltip>
 
-              {/* 🚪 Botón 1-toque: Integrar ambientes (Concepto Abierto) vs Tabique Sólido */}
-              {adjacentConn && (
+              {/* 🚪 Botón 1-toque: Integrar ambientes (Concepto Abierto) vs Tabique Sólido (Deshabilitado en superposición) */}
+              {adjacentConn && !isSuperimposed && (
                 <Tooltip
                   title={
                     adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual'
@@ -864,6 +897,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                         : 'outlined'
                     }
                     onClick={() => {
+                      if (isSuperimposed) return;
                       const nextVirtual = !(adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual');
                       updateConnection(adjacentConn.id, {
                         isVirtualBoundary: nextVirtual,
@@ -898,13 +932,23 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
 
               {/* 🔗 Botón 1-toque: Fusión Booleana de Ambientes en 'L' */}
               {adjacentNeighbor && canMergeWithNeighbor && (
-                <Tooltip title={`Unir con ${adjacentNeighbor.name} en un único ambiente continuo (en 'L')`}>
+                <Tooltip
+                  title={
+                    isSuperimposed
+                      ? `Combinar ambientes solapados en un único espacio continuo (en 'L')`
+                      : `Unir con ${adjacentNeighbor.name} en un único ambiente continuo (en 'L')`
+                  }
+                >
                   <Chip
                     icon={<MergeIcon sx={{ fontSize: '1rem !important' }} />}
-                    label={`🔗 Fusionar con ${adjacentNeighbor.name}`}
+                    label={
+                      isSuperimposed
+                        ? `🔗 Combinar Solapados`
+                        : `🔗 Fusionar con ${adjacentNeighbor.name}`
+                    }
                     size="small"
                     color="secondary"
-                    variant="outlined"
+                    variant={isSuperimposed ? 'filled' : 'outlined'}
                     onClick={() => {
                       setMergeCustomName(`${selectedRoom.name} - ${adjacentNeighbor.name}`);
                       setMergeConfirmOpen(true);
@@ -915,9 +959,11 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                       fontSize: '0.74rem',
                       height: 28,
                       borderColor: '#9333ea',
-                      color: '#9333ea',
+                      color: isSuperimposed ? '#ffffff' : '#9333ea',
+                      bgcolor: isSuperimposed ? '#9333ea' : undefined,
+                      boxShadow: isSuperimposed ? '0 2px 8px rgba(147, 51, 234, 0.4)' : undefined,
                       '&:hover': {
-                        backgroundColor: 'rgba(147, 51, 234, 0.08)'
+                        backgroundColor: isSuperimposed ? '#7e22ce' : 'rgba(147, 51, 234, 0.08)'
                       }
                     }}
                   />
@@ -1321,8 +1367,9 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
           adjacentConn={adjacentConn}
           snapSuggestions={snapSuggestions}
           canMergeWithNeighbor={canMergeWithNeighbor}
+          isSuperimposed={isSuperimposed}
           onToggleVirtualBoundary={() => {
-            if (!adjacentConn) return;
+            if (!adjacentConn || isSuperimposed) return;
             const nextVirtual = !(adjacentConn.isVirtualBoundary || adjacentConn.type === 'limite_virtual');
             updateConnection(adjacentConn.id, {
               isVirtualBoundary: nextVirtual,
