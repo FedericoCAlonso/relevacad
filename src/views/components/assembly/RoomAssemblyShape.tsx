@@ -293,13 +293,261 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     const wallLengthPx = wall === 'north' || wall === 'south' ? roomWidthPx : roomLengthPx;
     const isHoriz = wall === 'north' || wall === 'south';
 
-    // 1. Si la pared no tiene aberturas (pared ciega o compartida sólida sin vanos)
-    if (intervals.length === 0) {
-      if (hasBreaks) {
-        // En recintos con quiebres, el polígono perimetral ya dibuja las paredes exactas sin barras rectas superpuestas
-        return null;
+    // 1. Si esta pared específica tiene un quiebre geométrico arquitectónico
+    const wallBreak = (room.geometry?.wallBreaks || []).find((b) => b.wall === wall);
+    if (wallBreak) {
+      const s = wallBreak.startOffsetMeters * PIXELS_PER_METER;
+      const w = wallBreak.widthMeters * PIXELS_PER_METER;
+      const dPx = Math.abs(wallBreak.depthMeters) * PIXELS_PER_METER;
+      const segments: React.ReactNode[] = [];
+
+      if (wall === 'west') {
+        if (s > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-pre`}
+              x={-wallThickness}
+              y={0}
+              width={wallThickness}
+              height={s}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
+        segments.push(
+          <Rect
+            key={`wb-${wall}-step1`}
+            x={-wallThickness}
+            y={s}
+            width={dPx + wallThickness}
+            height={wallThickness}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        segments.push(
+          <Rect
+            key={`wb-${wall}-back`}
+            x={dPx - wallThickness}
+            y={s}
+            width={wallThickness}
+            height={w}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        segments.push(
+          <Rect
+            key={`wb-${wall}-step2`}
+            x={-wallThickness}
+            y={s + w - wallThickness}
+            width={dPx + wallThickness}
+            height={wallThickness}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        if (roomLengthPx - (s + w) > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-post`}
+              x={-wallThickness}
+              y={s + w}
+              width={wallThickness}
+              height={roomLengthPx - (s + w)}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
+      } else if (wall === 'east') {
+        if (s > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-pre`}
+              x={roomWidthPx}
+              y={0}
+              width={wallThickness}
+              height={s}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
+        segments.push(
+          <Rect
+            key={`wb-${wall}-step1`}
+            x={roomWidthPx - dPx}
+            y={s}
+            width={dPx + wallThickness}
+            height={wallThickness}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        segments.push(
+          <Rect
+            key={`wb-${wall}-back`}
+            x={roomWidthPx - dPx}
+            y={s}
+            width={wallThickness}
+            height={w}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        segments.push(
+          <Rect
+            key={`wb-${wall}-step2`}
+            x={roomWidthPx - dPx}
+            y={s + w - wallThickness}
+            width={dPx + wallThickness}
+            height={wallThickness}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        if (roomLengthPx - (s + w) > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-post`}
+              x={roomWidthPx}
+              y={s + w}
+              width={wallThickness}
+              height={roomLengthPx - (s + w)}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
+      } else if (wall === 'north') {
+        if (s > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-pre`}
+              x={0}
+              y={-wallThickness}
+              width={s}
+              height={wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
+        segments.push(
+          <Rect
+            key={`wb-${wall}-step1`}
+            x={s}
+            y={-wallThickness}
+            width={wallThickness}
+            height={dPx + wallThickness}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        segments.push(
+          <Rect
+            key={`wb-${wall}-back`}
+            x={s}
+            y={dPx - wallThickness}
+            width={w}
+            height={wallThickness}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        segments.push(
+          <Rect
+            key={`wb-${wall}-step2`}
+            x={s + w - wallThickness}
+            y={-wallThickness}
+            width={wallThickness}
+            height={dPx + wallThickness}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        if (roomWidthPx - (s + w) > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-post`}
+              x={s + w}
+              y={-wallThickness}
+              width={roomWidthPx - (s + w)}
+              height={wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
+      } else if (wall === 'south') {
+        if (s > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-pre`}
+              x={0}
+              y={roomLengthPx}
+              width={s}
+              height={wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
+        segments.push(
+          <Rect
+            key={`wb-${wall}-step1`}
+            x={s}
+            y={roomLengthPx - dPx}
+            width={wallThickness}
+            height={dPx + wallThickness}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        segments.push(
+          <Rect
+            key={`wb-${wall}-back`}
+            x={s}
+            y={roomLengthPx - dPx}
+            width={w}
+            height={wallThickness}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        segments.push(
+          <Rect
+            key={`wb-${wall}-step2`}
+            x={s + w - wallThickness}
+            y={roomLengthPx - dPx}
+            width={wallThickness}
+            height={dPx + wallThickness}
+            fill="#1e293b"
+            listening={false}
+          />
+        );
+        if (roomWidthPx - (s + w) > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-post`}
+              x={s + w}
+              y={roomLengthPx}
+              width={roomWidthPx - (s + w)}
+              height={wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
       }
 
+      return <Group key={`wall-stepped-${wall}`}>{segments}</Group>;
+    }
+
+    // 2. Si la pared no tiene aberturas (pared ciega sólida)
+    if (intervals.length === 0) {
       let x = 0;
       let y = 0;
       let w = roomWidthPx;
@@ -481,9 +729,6 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             points={polyPointsPx}
             closed
             fill={isDescubierto ? '#f0fdf4' : isSemicubierto ? '#fffdfa' : (room.color || '#f8fafc')}
-            stroke="#1e293b"
-            strokeWidth={wallThicknessPx}
-            lineJoin="miter"
             opacity={isSelected ? 0.95 : 0.85}
             shadowColor={isSelected ? '#00629e' : '#000000'}
             shadowBlur={isSelected ? 16 : 4}

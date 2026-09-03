@@ -107,7 +107,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
 
       let snappedX = currentHandleX;
       let bestGuide: SnapGuideLine | null = null;
-      let minD = 16;
+      let minD = isMobile ? 32 : 18;
 
       const otherRooms = rooms.filter((r) => r.id !== selectedRoom.id);
       for (const target of otherRooms) {
@@ -186,7 +186,6 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
       if (!selectedRoom || !isMetricRoom(selectedRoom)) return;
       const finalHandleX = e.target.x();
       const sX = selectedRoom.canvasPosition.x;
-      const sL = metersToPixels(selectedRoom.dimensions?.length || 2.5);
       const newWidthMeters = Number(Math.max(0.6, (finalHandleX - sX) / PIXELS_PER_METER).toFixed(2));
 
       updateRoomDimensions(selectedRoom.id, {
@@ -195,7 +194,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         widthLocked: true
       });
       setSnapGuides([]);
-      e.target.position({ x: sX + metersToPixels(newWidthMeters), y: selectedRoom.canvasPosition.y + sL / 2 });
+      e.target.position({ x: sX + metersToPixels(newWidthMeters), y: selectedRoom.canvasPosition.y });
       syncRoomWallAdjacencies(selectedRoom.id);
     },
     [selectedRoom, updateRoomDimensions, setSnapGuides, syncRoomWallAdjacencies]
@@ -211,7 +210,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
 
       let snappedY = currentHandleY;
       let bestGuide: SnapGuideLine | null = null;
-      let minD = 16;
+      let minD = isMobile ? 32 : 18;
 
       const otherRooms = rooms.filter((r) => r.id !== selectedRoom.id);
       for (const target of otherRooms) {
@@ -291,7 +290,6 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
       const finalHandleY = e.target.y();
       const sX = selectedRoom.canvasPosition.x;
       const sY = selectedRoom.canvasPosition.y;
-      const sW = metersToPixels(selectedRoom.dimensions?.width || 3.0);
       const newLengthMeters = Number(Math.max(0.6, (finalHandleY - sY) / PIXELS_PER_METER).toFixed(2));
 
       updateRoomDimensions(selectedRoom.id, {
@@ -300,11 +298,60 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         lengthLocked: true
       });
       setSnapGuides([]);
-      e.target.position({ x: sX + sW / 2, y: sY + metersToPixels(newLengthMeters) });
+      e.target.position({ x: sX, y: sY + metersToPixels(newLengthMeters) });
       syncRoomWallAdjacencies(selectedRoom.id);
     },
     [selectedRoom, updateRoomDimensions, setSnapGuides, syncRoomWallAdjacencies]
   );
+
+  // 🧲 Detección de alineaciones inteligentes por Snap para 1-Toque (resuelve imprecisión en celular)
+  const snapSuggestions = useMemo(() => {
+    if (!selectedRoom || !isMetricRoom(selectedRoom)) return [];
+    const suggestions: Array<{ id: string; label: string; action: () => void }> = [];
+    const otherRooms = rooms.filter((r) => r.id !== selectedRoom.id && isMetricRoom(r));
+
+    const sL = selectedRoom.dimensions?.length || 2.5;
+    const sW = selectedRoom.dimensions?.width || 3.0;
+
+    for (const target of otherRooms) {
+      const tW = target.dimensions?.width || 3.0;
+      const tH = target.dimensions?.length || 2.5;
+
+      // 1. Alinear / igualar longitud con vecino
+      if (Math.abs(sL - tH) > 0.04 && Math.abs(sL - tH) <= 2.0) {
+        suggestions.push({
+          id: `align-l-${target.id}`,
+          label: `🧲 Longitud = ${tH}m (${target.name})`,
+          action: () => {
+            updateRoomDimensions(selectedRoom.id, {
+              ...selectedRoom.dimensions,
+              length: tH,
+              lengthLocked: true
+            });
+            syncRoomWallAdjacencies(selectedRoom.id);
+          }
+        });
+      }
+
+      // 2. Alinear / igualar ancho con vecino
+      if (Math.abs(sW - tW) > 0.04 && Math.abs(sW - tW) <= 2.0) {
+        suggestions.push({
+          id: `align-w-${target.id}`,
+          label: `🧲 Ancho = ${tW}m (${target.name})`,
+          action: () => {
+            updateRoomDimensions(selectedRoom.id, {
+              ...selectedRoom.dimensions,
+              width: tW,
+              widthLocked: true
+            });
+            syncRoomWallAdjacencies(selectedRoom.id);
+          }
+        });
+      }
+    }
+
+    return suggestions.slice(0, 2);
+  }, [selectedRoom, rooms, updateRoomDimensions, syncRoomWallAdjacencies]);
 
   const handleWallClick = useCallback(
     (roomId: string, wall: WallOrientation) => {
@@ -639,6 +686,28 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
                   sx={{ fontWeight: 600, fontSize: '0.74rem', height: 28 }}
                 />
               </Tooltip>
+
+              {/* 🧲 Botones de alineación instantánea por Snap con 1 toque */}
+              {snapSuggestions.map((sug) => (
+                <Tooltip key={sug.id} title="Alinear instantáneamente por snap con 1 toque">
+                  <Chip
+                    label={sug.label}
+                    size="small"
+                    color="primary"
+                    variant="filled"
+                    onClick={sug.action}
+                    clickable
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.74rem',
+                      height: 28,
+                      bgcolor: '#0284c7',
+                      color: '#ffffff',
+                      boxShadow: '0 2px 6px rgba(2, 132, 199, 0.35)'
+                    }}
+                  />
+                </Tooltip>
+              ))}
             </>
           )}
 
