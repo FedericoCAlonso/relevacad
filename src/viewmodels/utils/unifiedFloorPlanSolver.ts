@@ -30,6 +30,8 @@ export interface WallPlanimetryInfo {
   wall: WallOrientation;
   isShared: boolean;
   isVirtualBoundary?: boolean;
+  isInvaderWall?: boolean;
+  clipPenetrationPx?: { startOffsetPx: number; endClipPx: number };
   wallThicknessMeters: number;
   openings: OpeningProperties[];
   intervals: WallOpeningInterval[];
@@ -154,11 +156,45 @@ export function calculateRoomPlanimetry(
     }
   }
 
+  // Buscar si este ambiente es invasor sobre algún vecino
+  const invaderConn = connections.find((c) => {
+    if (!c.invasion || c.invasion.type === 'none') return false;
+    const isSourceInv = c.invasion.type === 'source_invades_target';
+    return (isSourceInv && c.sourceRoomId === room.id) || (!isSourceInv && c.targetRoomId === room.id);
+  });
+
+  const invaderPenetratingWall: WallOrientation | null = invaderConn
+    ? (invaderConn.invasion?.type === 'source_invades_target'
+        ? (invaderConn.sourceWall || 'north')
+        : (invaderConn.targetWall || 'south'))
+    : null;
+
+  const invaderDepthPx = invaderConn
+    ? (invaderConn.invasion?.depthMeters || 0) * PIXELS_PER_METER
+    : 0;
+
   // Helper para resolver la información e intervalos de una pared
   const resolveWallInfo = (wall: WallOrientation, isGeoShared: boolean): WallPlanimetryInfo => {
     const isHoriz = wall === 'north' || wall === 'south';
     const wallLengthPx = isHoriz ? widthPx : lengthPx;
     const roomWallOrigin = isHoriz ? rLeft : rTop;
+
+    // Si esta pared es la cara que penetra hacia el vecino, se marca como isInvaderWall
+    const isThisInvaderWall = Boolean(invaderPenetratingWall && wall === invaderPenetratingWall);
+
+    // Calcular recorte para paredes perpendiculares al avance de la invasión
+    let clipPenetrationPx: { startOffsetPx: number; endClipPx: number } | undefined = undefined;
+    if (invaderPenetratingWall && invaderDepthPx > 0) {
+      if (invaderPenetratingWall === 'east' && (wall === 'north' || wall === 'south')) {
+        clipPenetrationPx = { startOffsetPx: 0, endClipPx: invaderDepthPx };
+      } else if (invaderPenetratingWall === 'west' && (wall === 'north' || wall === 'south')) {
+        clipPenetrationPx = { startOffsetPx: invaderDepthPx, endClipPx: 0 };
+      } else if (invaderPenetratingWall === 'south' && (wall === 'east' || wall === 'west')) {
+        clipPenetrationPx = { startOffsetPx: 0, endClipPx: invaderDepthPx };
+      } else if (invaderPenetratingWall === 'north' && (wall === 'east' || wall === 'west')) {
+        clipPenetrationPx = { startOffsetPx: invaderDepthPx, endClipPx: 0 };
+      }
+    }
 
     // Buscar conexión incidente en esta pared
     const conn = connections.find((c) => {
@@ -174,6 +210,8 @@ export function calculateRoomPlanimetry(
       return {
         wall,
         isShared,
+        isInvaderWall: isThisInvaderWall,
+        clipPenetrationPx,
         wallThicknessMeters,
         openings: [],
         intervals: []
@@ -191,6 +229,8 @@ export function calculateRoomPlanimetry(
         wall,
         isShared: true,
         isVirtualBoundary: true,
+        isInvaderWall: isThisInvaderWall,
+        clipPenetrationPx,
         wallThicknessMeters: 0,
         openings: [],
         intervals: [],
@@ -203,6 +243,8 @@ export function calculateRoomPlanimetry(
       return {
         wall,
         isShared: true,
+        isInvaderWall: isThisInvaderWall,
+        clipPenetrationPx,
         wallThicknessMeters,
         openings: [],
         intervals: [],
@@ -215,6 +257,8 @@ export function calculateRoomPlanimetry(
       return {
         wall,
         isShared: true,
+        isInvaderWall: isThisInvaderWall,
+        clipPenetrationPx,
         wallThicknessMeters,
         openings: [],
         intervals: [],
@@ -295,6 +339,8 @@ export function calculateRoomPlanimetry(
     return {
       wall,
       isShared: true,
+      isInvaderWall: isThisInvaderWall,
+      clipPenetrationPx,
       wallThicknessMeters,
       openings: allOps,
       intervals,

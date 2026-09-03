@@ -287,6 +287,13 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
       wallInfo.connection?.type === 'limite_virtual'
     );
 
+    if (wallInfo.isInvaderWall) {
+      // 🔲 CARA PENETRANTE DE INVASIÓN:
+      // La interfaz la dibuja exclusivamente el ambiente invadido en el fondo del nicho (wb-back).
+      // El ambiente invasor omite esta pared para evitar sobre-paredes verticales duplicadas.
+      return null;
+    }
+
     if (isVirtual) {
       // 🚪 LÍMITE VIRTUAL (Concepto Abierto / Espacio Integrado sin Muro Físico):
       // No dibuja tabique constructivo sólido (#1e293b).
@@ -338,17 +345,19 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             />
           );
         }
-        segments.push(
-          <Rect
-            key={`wb-${wall}-step1`}
-            x={-wallThickness}
-            y={s}
-            width={dPx + wallThickness}
-            height={wallThickness}
-            fill="#1e293b"
-            listening={false}
-          />
-        );
+        if (s > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-step1`}
+              x={-wallThickness}
+              y={s}
+              width={dPx + wallThickness}
+              height={wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
         segments.push(
           <Rect
             key={`wb-${wall}-back`}
@@ -360,17 +369,19 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             listening={false}
           />
         );
-        segments.push(
-          <Rect
-            key={`wb-${wall}-step2`}
-            x={-wallThickness}
-            y={s + w - wallThickness}
-            width={dPx + wallThickness}
-            height={wallThickness}
-            fill="#1e293b"
-            listening={false}
-          />
-        );
+        if (roomLengthPx - (s + w) > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-step2`}
+              x={-wallThickness}
+              y={s + w - wallThickness}
+              width={dPx + wallThickness}
+              height={wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
         if (roomLengthPx - (s + w) > 2) {
           segments.push(
             <Rect
@@ -398,17 +409,19 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             />
           );
         }
-        segments.push(
-          <Rect
-            key={`wb-${wall}-step1`}
-            x={roomWidthPx - dPx}
-            y={s}
-            width={dPx + wallThickness}
-            height={wallThickness}
-            fill="#1e293b"
-            listening={false}
-          />
-        );
+        if (s > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-step1`}
+              x={roomWidthPx - dPx}
+              y={s}
+              width={dPx + wallThickness}
+              height={wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
         segments.push(
           <Rect
             key={`wb-${wall}-back`}
@@ -420,17 +433,19 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             listening={false}
           />
         );
-        segments.push(
-          <Rect
-            key={`wb-${wall}-step2`}
-            x={roomWidthPx - dPx}
-            y={s + w - wallThickness}
-            width={dPx + wallThickness}
-            height={wallThickness}
-            fill="#1e293b"
-            listening={false}
-          />
-        );
+        if (roomLengthPx - (s + w) > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-step2`}
+              x={roomWidthPx - dPx}
+              y={s + w - wallThickness}
+              width={dPx + wallThickness}
+              height={wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
         if (roomLengthPx - (s + w) > 2) {
           segments.push(
             <Rect
@@ -458,17 +473,19 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             />
           );
         }
-        segments.push(
-          <Rect
-            key={`wb-${wall}-step1`}
-            x={s}
-            y={-wallThickness}
-            width={wallThickness}
-            height={dPx + wallThickness}
-            fill="#1e293b"
-            listening={false}
-          />
-        );
+        if (s > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-step1`}
+              x={s}
+              y={-wallThickness}
+              width={wallThickness}
+              height={dPx + wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
         segments.push(
           <Rect
             key={`wb-${wall}-back`}
@@ -480,17 +497,19 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             listening={false}
           />
         );
-        segments.push(
-          <Rect
-            key={`wb-${wall}-step2`}
-            x={s + w - wallThickness}
-            y={-wallThickness}
-            width={wallThickness}
-            height={dPx + wallThickness}
-            fill="#1e293b"
-            listening={false}
-          />
-        );
+        if (roomWidthPx - (s + w) > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-step2`}
+              x={s + w - wallThickness}
+              y={-wallThickness}
+              width={wallThickness}
+              height={dPx + wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
         if (roomWidthPx - (s + w) > 2) {
           segments.push(
             <Rect
@@ -518,17 +537,19 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             />
           );
         }
-        segments.push(
-          <Rect
-            key={`wb-${wall}-step1`}
-            x={s}
-            y={roomLengthPx - dPx}
-            width={wallThickness}
-            height={dPx + wallThickness}
-            fill="#1e293b"
-            listening={false}
-          />
-        );
+        if (s > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-step1`}
+              x={s}
+              y={roomLengthPx - dPx}
+              width={wallThickness}
+              height={dPx + wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
         segments.push(
           <Rect
             key={`wb-${wall}-back`}
@@ -540,17 +561,19 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
             listening={false}
           />
         );
-        segments.push(
-          <Rect
-            key={`wb-${wall}-step2`}
-            x={s + w - wallThickness}
-            y={roomLengthPx - dPx}
-            width={wallThickness}
-            height={dPx + wallThickness}
-            fill="#1e293b"
-            listening={false}
-          />
-        );
+        if (roomWidthPx - (s + w) > 2) {
+          segments.push(
+            <Rect
+              key={`wb-${wall}-step2`}
+              x={s + w - wallThickness}
+              y={roomLengthPx - dPx}
+              width={wallThickness}
+              height={dPx + wallThickness}
+              fill="#1e293b"
+              listening={false}
+            />
+          );
+        }
         if (roomWidthPx - (s + w) > 2) {
           segments.push(
             <Rect
@@ -576,27 +599,33 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
       let w = roomWidthPx;
       let h = wallThickness;
 
+      const clip = wallInfo.clipPenetrationPx;
+      const startOffset = clip?.startOffsetPx || 0;
+      const endClip = clip?.endClipPx || 0;
+
       if (wall === 'north') {
-        x = -wallThickness;
+        x = -wallThickness + startOffset;
         y = -wallThickness;
-        w = roomWidthPx + 2 * wallThickness;
+        w = Math.max(0, roomWidthPx + 2 * wallThickness - startOffset - endClip);
         h = wallThickness;
       } else if (wall === 'south') {
-        x = -wallThickness;
+        x = -wallThickness + startOffset;
         y = roomLengthPx;
-        w = roomWidthPx + 2 * wallThickness;
+        w = Math.max(0, roomWidthPx + 2 * wallThickness - startOffset - endClip);
         h = wallThickness;
       } else if (wall === 'west') {
         x = -wallThickness;
-        y = 0;
+        y = startOffset;
         w = wallThickness;
-        h = roomLengthPx;
+        h = Math.max(0, roomLengthPx - startOffset - endClip);
       } else if (wall === 'east') {
         x = roomWidthPx;
-        y = 0;
+        y = startOffset;
         w = wallThickness;
-        h = roomLengthPx;
+        h = Math.max(0, roomLengthPx - startOffset - endClip);
       }
+
+      if (w <= 0 || h <= 0) return null;
 
       return (
         <Rect
