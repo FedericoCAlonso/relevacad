@@ -8,9 +8,8 @@
  * - Mochetas sólidas calculadas dinámicamente sin solapamiento con vanos.
  */
 
-import React, { memo, useRef, useEffect } from 'react';
+import React, { memo } from 'react';
 import { Group, Rect, Text, Line, Circle } from 'react-konva';
-import Konva from 'konva';
 import { Room, TIPO_CUBIERTA_CATALOG, isMetricRoom } from '@/models/RoomModel';
 import { LogicalConnection } from '@/models/GraphModel';
 import { ELECTRICAL_ASSET_CATALOG } from '@/models/ElectricalTypes';
@@ -28,9 +27,7 @@ interface RoomAssemblyShapeProps {
   isSelected: boolean;
   wallThicknessPx: number;
   openings: LogicalConnection[];
-  isDragModeActive?: boolean;
   onSelect: (roomId: string) => void;
-  onDoubleTap?: (roomId: string) => void;
   onDragMove: (roomId: string, node: any) => void;
   onDragEnd: (roomId: string, node: any) => void;
 }
@@ -41,53 +38,11 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
   isSelected,
   wallThicknessPx,
   openings,
-  isDragModeActive,
   onSelect,
-  onDoubleTap,
   onDragMove,
   onDragEnd
 }) => {
-  const lastTapRef = useRef<number>(0);
-
-  const handlePointerTap = (e: any) => {
-    e.cancelBubble = true;
-    const now = Date.now();
-    if (now - lastTapRef.current < 350) {
-      lastTapRef.current = 0;
-      onDoubleTap?.(room.id);
-    } else {
-      lastTapRef.current = now;
-      onSelect(room.id);
-    }
-  };
-  const innerRef = useRef<Konva.Group>(null);
   const isNonMetric = !isMetricRoom(room);
-
-  // 🚀 BITMAP CACHING: Congela la geometría vectorial del bloque en memoria GPU
-  useEffect(() => {
-    if (innerRef.current) {
-      innerRef.current.clearCache();
-      try {
-        innerRef.current.cache({
-          pixelRatio: Math.min(window.devicePixelRatio || 1, 2)
-        });
-      } catch (err) {
-        // Ignorar si el nodo está temporalmente desmontado o con dimensiones 0
-      }
-    }
-  }, [
-    room.dimensions,
-    room.geometry,
-    room.color,
-    room.name,
-    room.tipoCubierta,
-    room.electricalAssets,
-    isSelected,
-    openings,
-    wallThicknessPx,
-    isNonMetric,
-    allRooms
-  ]);
 
   // 🧱 ZONAS NO RELEVADAS / LÍMITES Y ACCESOS (Áreas Difuminadas sin Bordes e Islas Flotantes)
   if (isNonMetric) {
@@ -102,6 +57,15 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
           x={room.canvasPosition.x}
           y={room.canvasPosition.y}
           draggable
+          onTouchStart={(e) => {
+            e.cancelBubble = true;
+          }}
+          onMouseDown={(e) => {
+            e.cancelBubble = true;
+          }}
+          onDragStart={(e) => {
+            e.cancelBubble = true;
+          }}
           onClick={(e) => {
             e.cancelBubble = true;
             onSelect(room.id);
@@ -116,6 +80,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
           }}
           onDragEnd={(e) => {
             e.cancelBubble = true;
+            onSelect(room.id);
             onDragEnd(room.id, e.target);
           }}
         >
@@ -205,6 +170,15 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
         x={room.canvasPosition.x}
         y={room.canvasPosition.y}
         draggable
+        onTouchStart={(e) => {
+          e.cancelBubble = true;
+        }}
+        onMouseDown={(e) => {
+          e.cancelBubble = true;
+        }}
+        onDragStart={(e) => {
+          e.cancelBubble = true;
+        }}
         onClick={(e) => {
           e.cancelBubble = true;
           onSelect(room.id);
@@ -219,6 +193,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
         }}
         onDragEnd={(e) => {
           e.cancelBubble = true;
+          onSelect(room.id);
           onDragEnd(room.id, e.target);
         }}
       >
@@ -721,16 +696,23 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
       id={room.id}
       x={room.canvasPosition.x}
       y={room.canvasPosition.y}
-      draggable={Boolean(isDragModeActive)}
-      onClick={handlePointerTap}
-      onTap={handlePointerTap}
-      onDblClick={(e) => {
+      draggable
+      onTouchStart={(e) => {
         e.cancelBubble = true;
-        onDoubleTap?.(room.id);
       }}
-      onDblTap={(e) => {
+      onMouseDown={(e) => {
         e.cancelBubble = true;
-        onDoubleTap?.(room.id);
+      }}
+      onDragStart={(e) => {
+        e.cancelBubble = true;
+      }}
+      onClick={(e) => {
+        e.cancelBubble = true;
+        onSelect(room.id);
+      }}
+      onTap={(e) => {
+        e.cancelBubble = true;
+        onSelect(room.id);
       }}
       onDragMove={(e) => {
         e.cancelBubble = true;
@@ -738,10 +720,11 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
       }}
       onDragEnd={(e) => {
         e.cancelBubble = true;
+        onSelect(room.id);
         onDragEnd(room.id, e.target);
       }}
     >
-      <Group ref={innerRef}>
+      <Group>
         {/* Superficie / Suelo Interior */}
         {hasBreaks ? (
           <Line
