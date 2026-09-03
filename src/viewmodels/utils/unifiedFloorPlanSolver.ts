@@ -30,8 +30,7 @@ export interface WallPlanimetryInfo {
   wall: WallOrientation;
   isShared: boolean;
   isVirtualBoundary?: boolean;
-  isInvaderWall?: boolean;
-  clipPenetrationPx?: { startOffsetPx: number; endClipPx: number };
+  cutIntervals?: Array<{ startPx: number; endPx: number }>;
   wallThicknessMeters: number;
   openings: OpeningProperties[];
   intervals: WallOpeningInterval[];
@@ -156,22 +155,21 @@ export function calculateRoomPlanimetry(
     }
   }
 
-  // Buscar si este ambiente es invasor sobre algún vecino
-  const invaderConn = connections.find((c) => {
+  // Buscar si este ambiente es el INVADIDO por algún vecino
+  const invadedConns = connections.filter((c) => {
     if (!c.invasion || c.invasion.type === 'none') return false;
     const isSourceInv = c.invasion.type === 'source_invades_target';
-    return (isSourceInv && c.sourceRoomId === room.id) || (!isSourceInv && c.targetRoomId === room.id);
+    const invadedId = isSourceInv ? c.targetRoomId : c.sourceRoomId;
+    return invadedId === room.id;
   });
 
-  const invaderPenetratingWall: WallOrientation | null = invaderConn
-    ? (invaderConn.invasion?.type === 'source_invades_target'
-        ? (invaderConn.sourceWall || 'north')
-        : (invaderConn.targetWall || 'south'))
-    : null;
-
-  const invaderDepthPx = invaderConn
-    ? (invaderConn.invasion?.depthMeters || 0) * PIXELS_PER_METER
-    : 0;
+  const invaderRooms = invadedConns
+    .map((c) => {
+      const isSourceInv = c.invasion?.type === 'source_invades_target';
+      const invaderId = isSourceInv ? c.sourceRoomId : c.targetRoomId;
+      return allRooms.find((r) => r.id === invaderId);
+    })
+    .filter((r): r is Room => Boolean(r && isMetricRoom(r)));
 
   // Helper para resolver la información e intervalos de una pared
   const resolveWallInfo = (wall: WallOrientation, isGeoShared: boolean): WallPlanimetryInfo => {
@@ -179,20 +177,40 @@ export function calculateRoomPlanimetry(
     const wallLengthPx = isHoriz ? widthPx : lengthPx;
     const roomWallOrigin = isHoriz ? rLeft : rTop;
 
-    // Si esta pared es la cara que penetra hacia el vecino, se marca como isInvaderWall
-    const isThisInvaderWall = Boolean(invaderPenetratingWall && wall === invaderPenetratingWall);
+    // Calcular tramos de pared de este ambiente que deben ser recortados porque el invasor ocupa ese espacio
+    const cutIntervals: Array<{ startPx: number; endPx: number }> = [];
 
-    // Calcular recorte para paredes perpendiculares al avance de la invasión
-    let clipPenetrationPx: { startOffsetPx: number; endClipPx: number } | undefined = undefined;
-    if (invaderPenetratingWall && invaderDepthPx > 0) {
-      if (invaderPenetratingWall === 'east' && (wall === 'north' || wall === 'south')) {
-        clipPenetrationPx = { startOffsetPx: 0, endClipPx: invaderDepthPx };
-      } else if (invaderPenetratingWall === 'west' && (wall === 'north' || wall === 'south')) {
-        clipPenetrationPx = { startOffsetPx: invaderDepthPx, endClipPx: 0 };
-      } else if (invaderPenetratingWall === 'south' && (wall === 'east' || wall === 'west')) {
-        clipPenetrationPx = { startOffsetPx: 0, endClipPx: invaderDepthPx };
-      } else if (invaderPenetratingWall === 'north' && (wall === 'east' || wall === 'west')) {
-        clipPenetrationPx = { startOffsetPx: invaderDepthPx, endClipPx: 0 };
+    for (const invader of invaderRooms) {
+      const iW = metersToPixels(invader.dimensions?.width || 3);
+      const iH = metersToPixels(invader.dimensions?.length || 2.5);
+      const iLeft = invader.canvasPosition.x;
+      const iRight = iLeft + iW;
+      const iTop = invader.canvasPosition.y;
+      const iBottom = iTop + iH;
+
+      const interLeft = Math.max(rLeft, iLeft);
+      const interRight = Math.min(rRight, iRight);
+      const interTop = Math.max(rTop, iTop);
+      const interBottom = Math.min(rBottom, iBottom);
+
+      if (interRight - interLeft > 5 && interBottom - interTop > 5) {
+        if (wall === 'north' && rTop >= iTop - 2 && rTop < iBottom - 2) {
+          const startPx = Math.max(0, interLeft - rLeft);
+          const endPx = Math.min(widthPx, interRight - rLeft);
+          if (endPx - startPx > 5) cutIntervals.push({ startPx, endPx });
+        } else if (wall === 'south' && rBottom > iTop + 2 && rBottom <= iBottom + 2) {
+          const startPx = Math.max(0, interLeft - rLeft);
+          const endPx = Math.min(widthPx, interRight - rLeft);
+          if (endPx - startPx > 5) cutIntervals.push({ startPx, endPx });
+        } else if (wall === 'west' && rLeft >= iLeft - 2 && rLeft < iRight - 2) {
+          const startPx = Math.max(0, interTop - rTop);
+          const endPx = Math.min(lengthPx, interBottom - rTop);
+          if (endPx - startPx > 5) cutIntervals.push({ startPx, endPx });
+        } else if (wall === 'east' && rRight > iLeft + 2 && rRight <= iRight + 2) {
+          const startPx = Math.max(0, interTop - rTop);
+          const endPx = Math.min(lengthPx, interBottom - rTop);
+          if (endPx - startPx > 5) cutIntervals.push({ startPx, endPx });
+        }
       }
     }
 
@@ -210,8 +228,7 @@ export function calculateRoomPlanimetry(
       return {
         wall,
         isShared,
-        isInvaderWall: isThisInvaderWall,
-        clipPenetrationPx,
+        cutIntervals,
         wallThicknessMeters,
         openings: [],
         intervals: []
@@ -229,8 +246,7 @@ export function calculateRoomPlanimetry(
         wall,
         isShared: true,
         isVirtualBoundary: true,
-        isInvaderWall: isThisInvaderWall,
-        clipPenetrationPx,
+        cutIntervals,
         wallThicknessMeters: 0,
         openings: [],
         intervals: [],
@@ -243,8 +259,7 @@ export function calculateRoomPlanimetry(
       return {
         wall,
         isShared: true,
-        isInvaderWall: isThisInvaderWall,
-        clipPenetrationPx,
+        cutIntervals,
         wallThicknessMeters,
         openings: [],
         intervals: [],
@@ -257,8 +272,7 @@ export function calculateRoomPlanimetry(
       return {
         wall,
         isShared: true,
-        isInvaderWall: isThisInvaderWall,
-        clipPenetrationPx,
+        cutIntervals,
         wallThicknessMeters,
         openings: [],
         intervals: [],
@@ -339,8 +353,7 @@ export function calculateRoomPlanimetry(
     return {
       wall,
       isShared: true,
-      isInvaderWall: isThisInvaderWall,
-      clipPenetrationPx,
+      cutIntervals,
       wallThicknessMeters,
       openings: allOps,
       intervals,

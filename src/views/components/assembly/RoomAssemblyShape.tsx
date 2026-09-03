@@ -287,13 +287,6 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
       wallInfo.connection?.type === 'limite_virtual'
     );
 
-    if (wallInfo.isInvaderWall) {
-      // 🔲 CARA PENETRANTE DE INVASIÓN:
-      // La interfaz la dibuja exclusivamente el ambiente invadido en el fondo del nicho (wb-back).
-      // El ambiente invasor omite esta pared para evitar sobre-paredes verticales duplicadas.
-      return null;
-    }
-
     if (isVirtual) {
       // 🚪 LÍMITE VIRTUAL (Concepto Abierto / Espacio Integrado sin Muro Físico):
       // No dibuja tabique constructivo sólido (#1e293b).
@@ -323,8 +316,10 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     const wallLengthPx = wall === 'north' || wall === 'south' ? roomWidthPx : roomLengthPx;
     const isHoriz = wall === 'north' || wall === 'south';
 
-    // 1. Si esta pared específica tiene un quiebre geométrico arquitectónico
-    const wallBreak = (room.geometry?.wallBreaks || []).find((b) => b.wall === wall);
+    // 1. Si esta pared específica tiene un quiebre geométrico arquitectónico manual
+    const wallBreak = (room.geometry?.wallBreaks || []).find(
+      (b) => b.wall === wall && !b.id.startsWith('wb-invaded-')
+    );
     if (wallBreak) {
       const s = wallBreak.startOffsetMeters * PIXELS_PER_METER;
       const w = wallBreak.widthMeters * PIXELS_PER_METER;
@@ -594,52 +589,82 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
 
     // 2. Si la pared no tiene aberturas (pared ciega sólida)
     if (intervals.length === 0) {
-      let x = 0;
-      let y = 0;
-      let w = roomWidthPx;
-      let h = wallThickness;
+      let survivingSegments: Array<{ start: number; end: number }> = [
+        { start: 0, end: wallLengthPx }
+      ];
 
-      const clip = wallInfo.clipPenetrationPx;
-      const startOffset = clip?.startOffsetPx || 0;
-      const endClip = clip?.endClipPx || 0;
-
-      if (wall === 'north') {
-        x = -wallThickness + startOffset;
-        y = -wallThickness;
-        w = Math.max(0, roomWidthPx + 2 * wallThickness - startOffset - endClip);
-        h = wallThickness;
-      } else if (wall === 'south') {
-        x = -wallThickness + startOffset;
-        y = roomLengthPx;
-        w = Math.max(0, roomWidthPx + 2 * wallThickness - startOffset - endClip);
-        h = wallThickness;
-      } else if (wall === 'west') {
-        x = -wallThickness;
-        y = startOffset;
-        w = wallThickness;
-        h = Math.max(0, roomLengthPx - startOffset - endClip);
-      } else if (wall === 'east') {
-        x = roomWidthPx;
-        y = startOffset;
-        w = wallThickness;
-        h = Math.max(0, roomLengthPx - startOffset - endClip);
+      if (wallInfo.cutIntervals && wallInfo.cutIntervals.length > 0) {
+        for (const cut of wallInfo.cutIntervals) {
+          const next: Array<{ start: number; end: number }> = [];
+          for (const seg of survivingSegments) {
+            if (cut.endPx <= seg.start || cut.startPx >= seg.end) {
+              next.push(seg);
+            } else {
+              if (cut.startPx > seg.start + 2) {
+                next.push({ start: seg.start, end: cut.startPx });
+              }
+              if (cut.endPx < seg.end - 2) {
+                next.push({ start: cut.endPx, end: seg.end });
+              }
+            }
+          }
+          survivingSegments = next;
+        }
       }
 
-      if (w <= 0 || h <= 0) return null;
+      if (survivingSegments.length === 0) return null;
 
       return (
-        <Rect
-          key={`wall-solid-${wall}`}
-          x={x}
-          y={y}
-          width={w}
-          height={h}
-          fill="#1e293b"
-          opacity={isShared ? 0.92 : 1}
-          cornerRadius={0.5}
-          listening={false}
-          perfectDrawEnabled={false}
-        />
+        <Group key={`wall-solid-${wall}`}>
+          {survivingSegments.map((seg, idx) => {
+            let x = 0;
+            let y = 0;
+            let w = 0;
+            let h = 0;
+
+            const isStartCorner = seg.start === 0;
+            const isEndCorner = Math.abs(seg.end - wallLengthPx) <= 2;
+
+            if (wall === 'north') {
+              x = isStartCorner ? -wallThickness : seg.start;
+              y = -wallThickness;
+              w = (seg.end - seg.start) + (isStartCorner ? wallThickness : 0) + (isEndCorner ? wallThickness : 0);
+              h = wallThickness;
+            } else if (wall === 'south') {
+              x = isStartCorner ? -wallThickness : seg.start;
+              y = roomLengthPx;
+              w = (seg.end - seg.start) + (isStartCorner ? wallThickness : 0) + (isEndCorner ? wallThickness : 0);
+              h = wallThickness;
+            } else if (wall === 'west') {
+              x = -wallThickness;
+              y = isStartCorner ? -wallThickness : seg.start;
+              w = wallThickness;
+              h = (seg.end - seg.start) + (isStartCorner ? wallThickness : 0) + (isEndCorner ? wallThickness : 0);
+            } else if (wall === 'east') {
+              x = roomWidthPx;
+              y = isStartCorner ? -wallThickness : seg.start;
+              w = wallThickness;
+              h = (seg.end - seg.start) + (isStartCorner ? wallThickness : 0) + (isEndCorner ? wallThickness : 0);
+            }
+
+            if (w <= 0 || h <= 0) return null;
+
+            return (
+              <Rect
+                key={`wall-solid-${wall}-${idx}`}
+                x={x}
+                y={y}
+                width={w}
+                height={h}
+                fill="#1e293b"
+                opacity={isShared ? 0.92 : 1}
+                cornerRadius={0.5}
+                listening={false}
+                perfectDrawEnabled={false}
+              />
+            );
+          })}
+        </Group>
       );
     }
 
