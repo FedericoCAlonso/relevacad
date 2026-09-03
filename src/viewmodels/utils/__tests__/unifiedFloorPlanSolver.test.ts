@@ -137,4 +137,54 @@ describe('calculateRoomPlanimetry', () => {
       expect(wallInfo.segments[0].thicknessMeters).toBe(0.15);
     }
   });
+
+  it('cuts out wall segments in superposition so walls never overwrite each other', () => {
+    // Room A: 6.0m x 4.0m at (0, 0)
+    const roomA: Room = {
+      id: 'room-a',
+      name: 'Living',
+      type: 'living',
+      dimensions: { width: 6.0, length: 4.0, height: 2.6 },
+      canvasPosition: { x: 0, y: 0 },
+      topologyPosition: { x: 0, y: 0 },
+      electricalAssets: [],
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+
+    // Room B: 3.0m x 3.0m at (2.0m, 3.0m) -> penetrates Room A from South
+    const roomB: Room = {
+      id: 'room-b',
+      name: 'Cocina',
+      type: 'kitchen',
+      dimensions: { width: 3.0, length: 3.0, height: 2.6 },
+      canvasPosition: { x: metersToPixels(2.0), y: metersToPixels(3.0) },
+      topologyPosition: { x: 0, y: 0 },
+      electricalAssets: [],
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+
+    const planimetryA = calculateRoomPlanimetry(roomA, [roomA, roomB], [], 0.15);
+    const planimetryB = calculateRoomPlanimetry(roomB, [roomA, roomB], [], 0.15);
+
+    // En Room A, la pared Sur (Y=4.0m) debe estar recortada en el tramo de penetración de Room B [2.0m a 5.0m]
+    expect(planimetryA.south.cutIntervals).toBeDefined();
+    expect(planimetryA.south.cutIntervals!.length).toBeGreaterThan(0);
+    const cutA = planimetryA.south.cutIntervals![0];
+    expect(cutA.startPx).toBeCloseTo(metersToPixels(2.0), 1);
+    expect(cutA.endPx).toBeCloseTo(metersToPixels(5.0), 1);
+
+    // Y los segmentos reales de la pared Sur de Room A deben tener ese hueco (no dibujar pared continua de 0 a 6m)
+    const southSegmentsA = planimetryA.south.segments;
+    expect(southSegmentsA.length).toBe(2);
+    expect(southSegmentsA[0].endPx).toBeCloseTo(metersToPixels(2.0), 1);
+    expect(southSegmentsA[1].startPx).toBeCloseTo(metersToPixels(5.0), 1);
+
+    // En Room B, su pared Norte (Y=3.0m) está adentro de Room A [0 a 3.0m local]
+    // Debe estar recortada y no dibujar muro sólido atravesando el living de Room A
+    expect(planimetryB.north.cutIntervals!.length).toBeGreaterThan(0);
+    const northSegmentsB = planimetryB.north.segments;
+    expect(northSegmentsB.length).toBe(0);
+  });
 });

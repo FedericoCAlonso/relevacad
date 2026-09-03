@@ -67,6 +67,71 @@ export interface RoomPlanimetryResult {
 }
 
 /**
+ * Sustrae los intervalos de corte (superposición, invasión, nichos) de una lista de sub-tramos de pared.
+ */
+export function subtractCutsFromSegments(
+  segments: WallSubSegment[],
+  cutIntervals: Array<{ startPx: number; endPx: number }>
+): WallSubSegment[] {
+  if (!cutIntervals || cutIntervals.length === 0) return segments;
+
+  let currentSegments = [...segments];
+
+  for (const cut of cutIntervals) {
+    if (cut.endPx - cut.startPx <= 1) continue;
+    const nextSegments: WallSubSegment[] = [];
+
+    for (const seg of currentSegments) {
+      // 1. Sin solape
+      if (cut.endPx <= seg.startPx + 1 || cut.startPx >= seg.endPx - 1) {
+        nextSegments.push(seg);
+        continue;
+      }
+
+      // 2. El corte cubre totalmente el segmento
+      if (cut.startPx <= seg.startPx + 1 && cut.endPx >= seg.endPx - 1) {
+        continue;
+      }
+
+      // 3. El corte está en el medio del segmento -> se divide en dos
+      if (cut.startPx > seg.startPx + 1 && cut.endPx < seg.endPx - 1) {
+        nextSegments.push({
+          ...seg,
+          endPx: cut.startPx
+        });
+        nextSegments.push({
+          ...seg,
+          startPx: cut.endPx
+        });
+        continue;
+      }
+
+      // 4. El corte recorta el inicio del segmento
+      if (cut.startPx <= seg.startPx + 1 && cut.endPx < seg.endPx - 1) {
+        nextSegments.push({
+          ...seg,
+          startPx: cut.endPx
+        });
+        continue;
+      }
+
+      // 5. El corte recorta el final del segmento
+      if (cut.startPx > seg.startPx + 1 && cut.endPx >= seg.endPx - 1) {
+        nextSegments.push({
+          ...seg,
+          endPx: cut.startPx
+        });
+        continue;
+      }
+    }
+
+    currentSegments = nextSegments;
+  }
+
+  return currentSegments.filter((s) => s.endPx - s.startPx > 1);
+}
+
+/**
  * Determina qué ambiente es el responsable exclusivo de renderizar la abertura
  * para garantizar que nunca se dibuje por duplicado.
  */
@@ -167,96 +232,56 @@ export function calculateRoomPlanimetry(
   }
 
   // Buscar si este ambiente es el INVADIDO por algún vecino
-  const invadedConns = connections.filter((c) => {
-    if (!c.invasion || c.invasion.type === 'none') return false;
-    const isSourceInv = c.invasion.type === 'source_invades_target';
-    const invadedId = isSourceInv ? c.targetRoomId : c.sourceRoomId;
-    return invadedId === room.id;
-  });
-
-  const invaderRooms = invadedConns
-    .map((c) => {
-      const isSourceInv = c.invasion?.type === 'source_invades_target';
-      const invaderId = isSourceInv ? c.sourceRoomId : c.targetRoomId;
-      return allRooms.find((r) => r.id === invaderId);
-    })
-    .filter((r): r is Room => Boolean(r && isMetricRoom(r)));
-
-  // Buscar si este ambiente es el INVASOR de algún vecino
-  const invaderConns = connections.filter((c) => {
-    if (!c.invasion || c.invasion.type === 'none') return false;
-    const isSourceInv = c.invasion.type === 'source_invades_target';
-    const invaderId = isSourceInv ? c.sourceRoomId : c.targetRoomId;
-    return invaderId === room.id;
-  });
-
   // Helper para resolver la información e intervalos de una pared
   const resolveWallInfo = (wall: WallOrientation, isGeoShared: boolean): WallPlanimetryInfo => {
     const isHoriz = wall === 'north' || wall === 'south';
     const wallLengthPx = isHoriz ? widthPx : lengthPx;
 
-    // Calcular tramos de pared de este ambiente que deben ser recortados porque el invasor ocupa ese espacio
+    // 1. Calcular tramos de pared de este ambiente que deben ser recortados porque se superponen o penetran en otro ambiente métrico
     const cutIntervals: Array<{ startPx: number; endPx: number }> = [];
 
-    // 1. Si este ambiente es el invadido: recortar donde penetra el invasor
-    for (const invader of invaderRooms) {
-      const iW = metersToPixels(invader.dimensions?.width || 3);
-      const iH = metersToPixels(invader.dimensions?.length || 2.5);
-      const iLeft = invader.canvasPosition.x;
-      const iRight = iLeft + iW;
-      const iTop = invader.canvasPosition.y;
-      const iBottom = iTop + iH;
+    for (const other of allRooms) {
+      if (other.id === room.id || !isMetricRoom(other)) continue;
 
-      const interLeft = Math.max(rLeft, iLeft);
-      const interRight = Math.min(rRight, iRight);
-      const interTop = Math.max(rTop, iTop);
-      const interBottom = Math.min(rBottom, iBottom);
+      const oW = metersToPixels(other.dimensions?.width || 3);
+      const oH = metersToPixels(other.dimensions?.length || 2.5);
+      const oLeft = other.canvasPosition.x;
+      const oRight = oLeft + oW;
+      const oTop = other.canvasPosition.y;
+      const oBottom = oTop + oH;
 
-      if (interRight - interLeft > 5 && interBottom - interTop > 5) {
-        if (wall === 'north' && rTop >= iTop - 2 && rTop < iBottom - 2) {
-          const startPx = Math.max(0, interLeft - rLeft);
-          const endPx = Math.min(widthPx, interRight - rLeft);
-          if (endPx - startPx > 5) cutIntervals.push({ startPx, endPx });
-        } else if (wall === 'south' && rBottom > iTop + 2 && rBottom <= iBottom + 2) {
-          const startPx = Math.max(0, interLeft - rLeft);
-          const endPx = Math.min(widthPx, interRight - rLeft);
-          if (endPx - startPx > 5) cutIntervals.push({ startPx, endPx });
-        } else if (wall === 'west' && rLeft >= iLeft - 2 && rLeft < iRight - 2) {
-          const startPx = Math.max(0, interTop - rTop);
-          const endPx = Math.min(lengthPx, interBottom - rTop);
-          if (endPx - startPx > 5) cutIntervals.push({ startPx, endPx });
-        } else if (wall === 'east' && rRight > iLeft + 2 && rRight <= iRight + 2) {
-          const startPx = Math.max(0, interTop - rTop);
-          const endPx = Math.min(lengthPx, interBottom - rTop);
-          if (endPx - startPx > 5) cutIntervals.push({ startPx, endPx });
-        }
-      }
-    }
+      const interLeft = Math.max(rLeft, oLeft);
+      const interRight = Math.min(rRight, oRight);
+      const interTop = Math.max(rTop, oTop);
+      const interBottom = Math.min(rBottom, oBottom);
 
-    // 2. Si este ambiente es el INVASOR: en su pared de ataque debe recortar el tramo de penetración
-    // para no dibujar una "sobrepared" ciega bloqueando la boca de ataque
-    for (const invConn of invaderConns) {
-      const isSource = invConn.sourceRoomId === room.id;
-      const invaderWall = isSource ? invConn.sourceWall : invConn.targetWall;
-      if (invaderWall === wall) {
-        const otherId = isSource ? invConn.targetRoomId : invConn.sourceRoomId;
-        const invadedRoom = allRooms.find((r) => r.id === otherId);
-        if (invadedRoom && isMetricRoom(invadedRoom)) {
-          const oW = metersToPixels(invadedRoom.dimensions?.width || 3);
-          const oH = metersToPixels(invadedRoom.dimensions?.length || 2.5);
-          const oLeft = invadedRoom.canvasPosition.x;
-          const oRight = oLeft + oW;
-          const oTop = invadedRoom.canvasPosition.y;
-          const oBottom = oTop + oH;
+      const overlapX = interRight - interLeft;
+      const overlapY = interBottom - interTop;
 
-          if (isHoriz) {
-            const startPx = Math.max(0, Math.max(rLeft, oLeft) - rLeft);
-            const endPx = Math.min(widthPx, Math.min(rRight, oRight) - rLeft);
-            if (endPx - startPx > 5) cutIntervals.push({ startPx, endPx });
-          } else {
-            const startPx = Math.max(0, Math.max(rTop, oTop) - rTop);
-            const endPx = Math.min(lengthPx, Math.min(rBottom, oBottom) - rTop);
-            if (endPx - startPx > 5) cutIntervals.push({ startPx, endPx });
+      if (overlapX > 4 && overlapY > 4) {
+        if (wall === 'north') {
+          if (rTop >= oTop - 2 && rTop < oBottom - 2) {
+            const startPx = Math.max(0, interLeft - rLeft);
+            const endPx = Math.min(widthPx, interRight - rLeft);
+            if (endPx - startPx > 4) cutIntervals.push({ startPx, endPx });
+          }
+        } else if (wall === 'south') {
+          if (rBottom > oTop + 2 && rBottom <= oBottom + 2) {
+            const startPx = Math.max(0, interLeft - rLeft);
+            const endPx = Math.min(widthPx, interRight - rLeft);
+            if (endPx - startPx > 4) cutIntervals.push({ startPx, endPx });
+          }
+        } else if (wall === 'west') {
+          if (rLeft >= oLeft - 2 && rLeft < oRight - 2) {
+            const startPx = Math.max(0, interTop - rTop);
+            const endPx = Math.min(lengthPx, interBottom - rTop);
+            if (endPx - startPx > 4) cutIntervals.push({ startPx, endPx });
+          }
+        } else if (wall === 'east') {
+          if (rRight > oLeft + 2 && rRight <= oRight + 2) {
+            const startPx = Math.max(0, interTop - rTop);
+            const endPx = Math.min(lengthPx, interBottom - rTop);
+            if (endPx - startPx > 4) cutIntervals.push({ startPx, endPx });
           }
         }
       }
@@ -273,6 +298,14 @@ export function calculateRoomPlanimetry(
     const wallThicknessMeters = getConnectionWallThickness(conn, defaultWallThicknessMeters);
 
     if (!conn) {
+      const rawSegments: WallSubSegment[] = [
+        {
+          startPx: 0,
+          endPx: wallLengthPx,
+          type: 'solid_exterior',
+          thicknessMeters: defaultWallThicknessMeters
+        }
+      ];
       return {
         wall,
         isShared,
@@ -280,14 +313,7 @@ export function calculateRoomPlanimetry(
         wallThicknessMeters: defaultWallThicknessMeters,
         openings: [],
         intervals: [],
-        segments: [
-          {
-            startPx: 0,
-            endPx: wallLengthPx,
-            type: 'solid_exterior',
-            thicknessMeters: defaultWallThicknessMeters
-          }
-        ]
+        segments: subtractCutsFromSegments(rawSegments, cutIntervals)
       };
     }
 
@@ -352,7 +378,7 @@ export function calculateRoomPlanimetry(
         wallThicknessMeters: defaultWallThicknessMeters,
         openings: [],
         intervals: [],
-        segments,
+        segments: subtractCutsFromSegments(segments, cutIntervals),
         connection: conn
       };
     }
@@ -470,7 +496,7 @@ export function calculateRoomPlanimetry(
       wallThicknessMeters,
       openings: getConnectionOpenings(conn),
       intervals,
-      segments,
+      segments: subtractCutsFromSegments(segments, cutIntervals),
       connection: conn
     };
   };
