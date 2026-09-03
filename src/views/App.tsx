@@ -88,7 +88,7 @@ export const App: React.FC = () => {
       {isMobile && selectedRoom && activePhase !== 'parametrization' && (
         <MobileRoomBottomSheet
           open={Boolean(selectedRoom)}
-          onClose={() => selectRoom('')}
+          onClose={() => selectRoom(null)}
         />
       )}
     </AppLayout>

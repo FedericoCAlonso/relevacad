@@ -1960,7 +1960,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
 
     const SNAP_CONTACT_TOLERANCE = 14;
 
-    const newConnections: LogicalConnection[] = [...connections];
+    let newConnections: LogicalConnection[] = [...connections];
     let hasChanged = false;
 
     for (const other of rooms) {
@@ -1982,112 +1982,143 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
       const overlapX = Math.min(mRight, oRight) - Math.max(mLeft, oLeft);
       const overlapY = Math.min(mBottom, oBottom) - Math.max(mTop, oTop);
 
-      let contactFound: { sourceWall: WallOrientation; targetWall: WallOrientation } | null = null;
-      let invasionDetected: WallInvasion | null = null;
       const tPx = metersToPixels(wallThicknessMeters);
+      const contacts: Array<{ sourceWall: WallOrientation; targetWall: WallOrientation; invasion?: WallInvasion }> = [];
 
-      // Contacto 1: movedRoom a la derecha de other (muro compartido plano)
-      if ((Math.abs(mLeft - (oRight + tPx)) <= SNAP_CONTACT_TOLERANCE || Math.abs(mLeft - oRight) <= SNAP_CONTACT_TOLERANCE) && overlapY > 10) {
-        contactFound = { sourceWall: 'west', targetWall: 'east' };
+      // 1. Contactos de interfaz Este / Oeste
+      // 1.a) Oeste de movedRoom con Este de other
+      if ((Math.abs(mLeft - oRight) <= SNAP_CONTACT_TOLERANCE || Math.abs(mLeft - (oRight + tPx)) <= SNAP_CONTACT_TOLERANCE) && overlapY > 10) {
+        contacts.push({ sourceWall: 'west', targetWall: 'east' });
+      } else if (isMetricRoom(movedRoom) && isMetricRoom(other) && mLeft < oRight - 4 && mRight > oRight && overlapY > 10 && overlapX > 4) {
+        // movedRoom penetra en other desde la derecha (lado Oeste de movedRoom avanza hacia el interior de other)
+        const depthMeters = Number(Math.max(0.1, (oRight - mLeft) / PIXELS_PER_METER).toFixed(2));
+        const widthMeters = Number((overlapY / PIXELS_PER_METER).toFixed(2));
+        contacts.push({ sourceWall: 'west', targetWall: 'east', invasion: { type: 'source_invades_target', depthMeters, widthMeters } });
       }
-      // Contacto 2: movedRoom a la izquierda de other (muro compartido plano)
-      else if ((Math.abs(mRight + tPx - oLeft) <= SNAP_CONTACT_TOLERANCE || Math.abs(mRight - oLeft) <= SNAP_CONTACT_TOLERANCE) && overlapY > 10) {
-        contactFound = { sourceWall: 'east', targetWall: 'west' };
+
+      // 1.b) Este de movedRoom con Oeste de other
+      if ((Math.abs(mRight - oLeft) <= SNAP_CONTACT_TOLERANCE || Math.abs(mRight + tPx - oLeft) <= SNAP_CONTACT_TOLERANCE) && overlapY > 10) {
+        contacts.push({ sourceWall: 'east', targetWall: 'west' });
+      } else if (isMetricRoom(movedRoom) && isMetricRoom(other) && mRight > oLeft + 4 && mLeft < oLeft && overlapY > 10 && overlapX > 4) {
+        // movedRoom penetra en other desde la izquierda (lado Este de movedRoom avanza hacia el interior de other)
+        const depthMeters = Number(Math.max(0.1, (mRight - oLeft) / PIXELS_PER_METER).toFixed(2));
+        const widthMeters = Number((overlapY / PIXELS_PER_METER).toFixed(2));
+        contacts.push({ sourceWall: 'east', targetWall: 'west', invasion: { type: 'source_invades_target', depthMeters, widthMeters } });
       }
-      // Contacto 3: movedRoom abajo de other (muro compartido plano)
-      else if ((Math.abs(mTop - (oBottom + tPx)) <= SNAP_CONTACT_TOLERANCE || Math.abs(mTop - oBottom) <= SNAP_CONTACT_TOLERANCE) && overlapX > 10) {
-        contactFound = { sourceWall: 'north', targetWall: 'south' };
+
+      // 2. Contactos de interfaz Norte / Sur
+      // 2.a) Norte de movedRoom con Sur de other
+      if ((Math.abs(mTop - oBottom) <= SNAP_CONTACT_TOLERANCE || Math.abs(mTop - (oBottom + tPx)) <= SNAP_CONTACT_TOLERANCE) && overlapX > 10) {
+        contacts.push({ sourceWall: 'north', targetWall: 'south' });
+      } else if (isMetricRoom(movedRoom) && isMetricRoom(other) && mTop < oBottom - 4 && mBottom > oBottom && overlapX > 10 && overlapY > 4) {
+        // movedRoom penetra en other desde abajo (lado Norte de movedRoom avanza hacia el interior de other)
+        const depthMeters = Number(Math.max(0.1, (oBottom - mTop) / PIXELS_PER_METER).toFixed(2));
+        const widthMeters = Number((overlapX / PIXELS_PER_METER).toFixed(2));
+        contacts.push({ sourceWall: 'north', targetWall: 'south', invasion: { type: 'source_invades_target', depthMeters, widthMeters } });
       }
-      // Contacto 4: movedRoom arriba de other (muro compartido plano)
-      else if ((Math.abs(mBottom + tPx - oTop) <= SNAP_CONTACT_TOLERANCE || Math.abs(mBottom - oTop) <= SNAP_CONTACT_TOLERANCE) && overlapX > 10) {
-        contactFound = { sourceWall: 'south', targetWall: 'north' };
+
+      // 2.b) Sur de movedRoom con Norte de other
+      if ((Math.abs(mBottom - oTop) <= SNAP_CONTACT_TOLERANCE || Math.abs(mBottom + tPx - oTop) <= SNAP_CONTACT_TOLERANCE) && overlapX > 10) {
+        contacts.push({ sourceWall: 'south', targetWall: 'north' });
+      } else if (isMetricRoom(movedRoom) && isMetricRoom(other) && mBottom > oTop + 4 && mTop < oTop && overlapX > 10 && overlapY > 4) {
+        // movedRoom penetra en other desde arriba (lado Sur de movedRoom avanza hacia el interior de other)
+        const depthMeters = Number(Math.max(0.1, (mBottom - oTop) / PIXELS_PER_METER).toFixed(2));
+        const widthMeters = Number((overlapX / PIXELS_PER_METER).toFixed(2));
+        contacts.push({ sourceWall: 'south', targetWall: 'north', invasion: { type: 'source_invades_target', depthMeters, widthMeters } });
       }
-      // SUPERPOSICIÓN / AVANCE EN EL PLANO (Invasión Automática de Pared Común)
-      else if (isMetricRoom(movedRoom) && isMetricRoom(other) && overlapX > 10 && overlapY > 10) {
-        const isContained = (overlapX >= mW * 0.95 && overlapY >= mH * 0.95) || (overlapX >= oW * 0.95 && overlapY >= oH * 0.95);
-        if (!isContained) {
-          if (overlapX < overlapY) {
-            // Penetración horizontal (X)
-            if (mLeft < oLeft) {
-              contactFound = { sourceWall: 'east', targetWall: 'west' };
-              const depthMeters = Number(Math.max(0.1, ((overlapX + tPx) / PIXELS_PER_METER)).toFixed(2));
-              const widthMeters = Number((overlapY / PIXELS_PER_METER).toFixed(2));
-              invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
-            } else {
-              contactFound = { sourceWall: 'west', targetWall: 'east' };
-              const depthMeters = Number(Math.max(0.1, ((overlapX + tPx) / PIXELS_PER_METER)).toFixed(2));
-              const widthMeters = Number((overlapY / PIXELS_PER_METER).toFixed(2));
-              invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
+
+      // 3. Caso especial: Inclusión total o parcial en península (U o 4 paredes contenidas)
+      if (isMetricRoom(movedRoom) && isMetricRoom(other) && overlapX > 10 && overlapY > 10) {
+        // Si movedRoom está completamente dentro de other (ej: baño, ascensor, pleno)
+        if (mLeft >= oLeft - 2 && mRight <= oRight + 2 && mTop >= oTop - 2 && mBottom <= oBottom + 2) {
+          contacts.length = 0; // Reemplazar con las 4 paredes completas
+          contacts.push(
+            { sourceWall: 'north', targetWall: 'south' },
+            { sourceWall: 'south', targetWall: 'north' },
+            { sourceWall: 'east', targetWall: 'west' },
+            { sourceWall: 'west', targetWall: 'east' }
+          );
+        }
+        // Si other está completamente dentro de movedRoom
+        else if (oLeft >= mLeft - 2 && oRight <= mRight + 2 && oTop >= mTop - 2 && oBottom <= mBottom + 2) {
+          contacts.length = 0;
+          contacts.push(
+            { sourceWall: 'south', targetWall: 'north' },
+            { sourceWall: 'north', targetWall: 'south' },
+            { sourceWall: 'west', targetWall: 'east' },
+            { sourceWall: 'east', targetWall: 'west' }
+          );
+        }
+      }
+
+      // Sincronizar conexiones existentes entre este par de ambientes
+      const pairConns = newConnections.filter(
+        (c) =>
+          (c.sourceRoomId === movedRoom.id && c.targetRoomId === other.id) ||
+          (c.sourceRoomId === other.id && c.targetRoomId === movedRoom.id)
+      );
+
+      // A. Para cada conexión existente: actualizarla si sigue activa o eliminarla/limpiarla si se separaron
+      for (const existing of pairConns) {
+        const isSourceMoved = existing.sourceRoomId === movedRoom.id;
+        const eSW = isSourceMoved ? existing.sourceWall : existing.targetWall;
+        const eTW = isSourceMoved ? existing.targetWall : existing.sourceWall;
+
+        const matchedContact = contacts.find((ct) => ct.sourceWall === eSW && ct.targetWall === eTW);
+
+        if (matchedContact) {
+          // El contacto sigue vivo
+          if (matchedContact.invasion) {
+            const invType = isSourceMoved ? 'source_invades_target' : 'target_invades_source';
+            const newInv: WallInvasion = { ...matchedContact.invasion, type: invType };
+            if (
+              existing.invasion?.type !== newInv.type ||
+              Math.abs((existing.invasion?.depthMeters || 0) - newInv.depthMeters!) > 0.04
+            ) {
+              existing.invasion = newInv;
+              existing.label = '🔲 Muro con Quiebre';
+              hasChanged = true;
             }
-          } else {
-            // Penetración vertical (Y)
-            if (mTop < oTop) {
-              contactFound = { sourceWall: 'south', targetWall: 'north' };
-              const depthMeters = Number(Math.max(0.1, ((overlapY + tPx) / PIXELS_PER_METER)).toFixed(2));
-              const widthMeters = Number((overlapX / PIXELS_PER_METER).toFixed(2));
-              invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
-            } else {
-              contactFound = { sourceWall: 'north', targetWall: 'south' };
-              const depthMeters = Number(Math.max(0.1, ((overlapY + tPx) / PIXELS_PER_METER)).toFixed(2));
-              const widthMeters = Number((overlapX / PIXELS_PER_METER).toFixed(2));
-              invasionDetected = { type: 'source_invades_target', depthMeters, widthMeters };
-            }
+          } else if (existing.invasion && existing.invasion.type !== 'none') {
+            existing.invasion = { type: 'none' };
+            existing.label = '🧱 Muro Compartido';
+            hasChanged = true;
+          }
+        } else {
+          // No hay contacto para este par de paredes: ¡SE SEPARARON!
+          if (existing.id.startsWith('conn-auto-')) {
+            // Eliminar arista automática huérfana
+            newConnections = newConnections.filter((c) => c.id !== existing.id);
+            hasChanged = true;
+          } else if (existing.invasion && existing.invasion.type !== 'none') {
+            // Resetear invasión en conexión manual
+            existing.invasion = { type: 'none' };
+            existing.label = '🧱 Muro Compartido';
+            hasChanged = true;
           }
         }
       }
 
-      if (contactFound) {
-        const existing = newConnections.find(
-          (c) =>
-            (c.sourceRoomId === movedRoom.id && c.targetRoomId === other.id) ||
-            (c.sourceRoomId === other.id && c.targetRoomId === movedRoom.id)
-        );
+      // B. Para cada nuevo contacto que no tuviera conexión previa: agregar arista individual al grafo
+      for (const ct of contacts) {
+        const alreadyExists = pairConns.some((c) => {
+          const isSourceMoved = c.sourceRoomId === movedRoom.id;
+          const eSW = isSourceMoved ? c.sourceWall : c.targetWall;
+          const eTW = isSourceMoved ? c.targetWall : c.sourceWall;
+          return eSW === ct.sourceWall && eTW === ct.targetWall;
+        });
 
-        if (existing) {
-          const isSourceMoved = existing.sourceRoomId === movedRoom.id;
-          if (isSourceMoved) {
-            existing.sourceWall = contactFound.sourceWall;
-            existing.targetWall = contactFound.targetWall;
-          } else {
-            existing.sourceWall = contactFound.targetWall;
-            existing.targetWall = contactFound.sourceWall;
-          }
-
-          const isVirtual = Boolean(
-            existing.isVirtualBoundary ||
-            existing.wallProperties?.isVirtualBoundary ||
-            existing.type === 'limite_virtual'
-          );
-
-          if (!isVirtual) {
-            if (invasionDetected) {
-              const invType = isSourceMoved ? 'source_invades_target' : 'target_invades_source';
-              const newInv: WallInvasion = { ...invasionDetected, type: invType };
-              if (
-                existing.invasion?.type !== newInv.type ||
-                Math.abs((existing.invasion?.depthMeters || 0) - newInv.depthMeters!) > 0.04
-              ) {
-                existing.invasion = newInv;
-                existing.label = '🔲 Muro con Quiebre';
-                hasChanged = true;
-              }
-            } else if (existing.invasion && existing.invasion.type !== 'none') {
-              existing.invasion = { type: 'none' };
-              existing.label = '🧱 Muro Compartido';
-              hasChanged = true;
-            }
-          }
-        } else {
+        if (!alreadyExists) {
           newConnections.push({
-            id: `conn-auto-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            id: `conn-auto-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
             sourceRoomId: movedRoom.id,
             targetRoomId: other.id,
             type: 'pared_comun',
-            label: invasionDetected ? '🔲 Muro con Quiebre' : '🧱 Muro Compartido',
-            sourceWall: contactFound.sourceWall,
-            targetWall: contactFound.targetWall,
-            sourceHandle: `source-${contactFound.sourceWall}`,
-            targetHandle: `target-${contactFound.targetWall}`,
+            label: ct.invasion ? '🔲 Muro con Quiebre' : '🧱 Muro Compartido',
+            sourceWall: ct.sourceWall,
+            targetWall: ct.targetWall,
+            sourceHandle: `source-${ct.sourceWall}`,
+            targetHandle: `target-${ct.targetWall}`,
             wallProperties: {
               materialType: 'ladrillo_hueco_8',
               thicknessMeters: wallThicknessMeters,
@@ -2096,10 +2127,10 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
             },
             openings: [],
             hasElectricalPass: false,
-            notes: invasionDetected
+            notes: ct.invasion
               ? 'Quiebre deducido automáticamente por avance en el plano'
               : 'Muro compartido fusionado automáticamente por contacto',
-            invasion: invasionDetected || undefined
+            invasion: ct.invasion || undefined
           });
           hasChanged = true;
         }

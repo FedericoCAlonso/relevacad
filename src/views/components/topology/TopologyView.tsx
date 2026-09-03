@@ -506,10 +506,11 @@ export const TopologyView: React.FC<TopologyViewProps> = ({ onOpenAddRoom }) => 
   }, []);
 
   const handlePaneClick = useCallback(() => {
-    if (!isChainMode && selectedElectricalNodeId) {
-      selectElectricalNode(null);
+    if (!isChainMode) {
+      if (selectedElectricalNodeId) selectElectricalNode(null);
+      if (selectedRoomId) selectRoom(null);
     }
-  }, [isChainMode, selectedElectricalNodeId, selectElectricalNode]);
+  }, [isChainMode, selectedElectricalNodeId, selectedRoomId, selectElectricalNode, selectRoom]);
 
   // Eliminar un ambiente con confirmación
   const handleDeleteRoom = (roomId: string, roomName: string) => {

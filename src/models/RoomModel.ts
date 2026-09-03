@@ -70,12 +70,32 @@ export interface CornerAngleConstraints {
   southWestLocked90?: boolean; // Vértice SO (Suroeste) fijado a 90°
 }
 
+export interface ArcWallSpec {
+  wall: WallOrientation;
+  sagittaMeters: number; // Flecha en metros al centro de la pared (+ hacia afuera, - hacia adentro)
+}
+
+export type WallSegmentType = 'line' | 'arc' | 'spline';
+
+export interface WallDefinition {
+  id: string;
+  name?: string;
+  wall?: WallOrientation;
+  startPoint: { x: number; y: number };
+  endPoint: { x: number; y: number };
+  type: WallSegmentType;
+  sagittaMeters?: number;
+  thicknessMeters?: number;
+}
+
 export interface RoomGeometry {
   mode: 'rectangle' | 'independent_walls' | 'diagonal_triangulated' | 'polygon';
   independentWalls?: IndependentWalls;
   diagonalSO_NE?: number; // Cota de diagonal desde esquina SO hacia NE (m)
   cornerConstraints?: CornerAngleConstraints;
   wallBreaks?: WallBreak[]; // Modificadores de pared (quiebres en Z, nichos, columnas, mochetas)
+  arcWalls?: ArcWallSpec[]; // Muros curvos especificados por flecha de curvatura (sagitta)
+  walls?: WallDefinition[]; // Definición explícita de paredes perimetrales
   computedVertices?: Array<{ x: number; y: number }>; // Vértices 2D en metros calculados por el solver
 }
 

@@ -470,12 +470,36 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
     return suggestions.slice(0, 2);
   }, [selectedRoom, rooms, updateRoomDimensions, syncRoomWallAdjacencies]);
 
+  const [wallClickContext, setWallClickContext] = useState<{
+    roomId: string;
+    wall: WallOrientation;
+    clickOffsetMeters: number;
+    clickRatio: number;
+    wallLengthMeters: number;
+  } | null>(null);
+
   const handleWallClick = useCallback(
-    (roomId: string, wall: WallOrientation) => {
+    (roomId: string, wall: WallOrientation, clickOffsetMeters?: number, clickRatio?: number) => {
+      const room = rooms.find((r) => r.id === roomId);
+      const isHoriz = wall === 'north' || wall === 'south';
+      const wallLen = isHoriz
+        ? (room?.dimensions?.width || 3.0)
+        : (room?.dimensions?.length || 2.5);
+
+      const offsetM = clickOffsetMeters !== undefined ? clickOffsetMeters : wallLen / 2;
+      const ratio = clickRatio !== undefined ? clickRatio : 0.5;
+
       const conn = getOrCreateWallConnection(roomId, wall);
+      setWallClickContext({
+        roomId,
+        wall,
+        clickOffsetMeters: offsetM,
+        clickRatio: ratio,
+        wallLengthMeters: wallLen
+      });
       setEditingConnection(conn);
     },
-    [getOrCreateWallConnection]
+    [rooms, getOrCreateWallConnection]
   );
 
   const wallThicknessPx = useMemo(
@@ -966,6 +990,18 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         x={stagePos.x}
         y={stagePos.y}
         draggable
+        onMouseDown={(e) => {
+          if (e.target === e.target.getStage()) {
+            selectRoom(null);
+            setSnapGuides([]);
+          }
+        }}
+        onTap={(e) => {
+          if (e.target === e.target.getStage()) {
+            selectRoom(null);
+            setSnapGuides([]);
+          }
+        }}
         onDragEnd={(e) => {
           if (e.target === e.target.getStage()) {
             setStagePos({ x: e.target.x(), y: e.target.y() });
@@ -1029,6 +1065,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
               onSelect={selectRoom}
               onDragMove={handleNodeDragMove}
               onDragEnd={handleNodeDragEnd}
+              onWallClick={handleWallClick}
             />
           ))}
         </Layer>
@@ -1275,12 +1312,16 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
         </Paper>
       )}
 
-      {/* 🧱 Inspector Modal de Muro y Aberturas (Solo si el usuario pulsa Aberturas en la barra superior) */}
+      {/* 🧱 Inspector Modal de Muro y Aberturas (Solo si el usuario pulsa Aberturas en la barra superior o hace clic en un muro) */}
       {editingConnection && (
         <EditOpeningDialog
           open={Boolean(editingConnection)}
-          onClose={() => setEditingConnection(null)}
+          onClose={() => {
+            setEditingConnection(null);
+            setWallClickContext(null);
+          }}
           connection={editingConnection}
+          wallClickContext={wallClickContext}
         />
       )}
 

@@ -35,6 +35,7 @@ export function useKeyboardShortcuts({
     deleteRoom,
     autoAssembleRooms,
     toggleSnap,
+    setSnapGuides,
     saveCurrentProjectToDB
   } = useSurveyViewModel();
 
@@ -117,7 +118,8 @@ export function useKeyboardShortcuts({
         // 6. Deseleccionar (Escape)
         if (e.key === 'Escape') {
           e.preventDefault();
-          selectRoom('');
+          selectRoom(null);
+          setSnapGuides([]);
           return;
         }
 

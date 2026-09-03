@@ -57,20 +57,32 @@ import {
 import { WallOrientation } from '@/models/RoomModel';
 import { useSurveyViewModel } from '@/viewmodels';
 
+export interface WallClickContext {
+  roomId: string;
+  wall: WallOrientation;
+  clickOffsetMeters: number;
+  clickRatio: number;
+  wallLengthMeters: number;
+}
+
 interface EditOpeningDialogProps {
   open: boolean;
   onClose: () => void;
   connection: LogicalConnection | null;
+  wallClickContext?: WallClickContext | null;
 }
 
 export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
   open,
   onClose,
-  connection
+  connection,
+  wallClickContext
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { rooms, updateConnection, deleteConnection } = useSurveyViewModel();
+
+  const [cornerRefs, setCornerRefs] = useState<Record<number, 'start' | 'end'>>({});
 
   // Estados del Muro Compartido
   const [sourceWall, setSourceWall] = useState<WallOrientation>('east');
@@ -97,8 +109,16 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
 
   useEffect(() => {
     if (connection) {
-      setSourceWall(connection.sourceWall || 'east');
-      setTargetWall(connection.targetWall || 'west');
+      if (wallClickContext && connection.sourceRoomId === wallClickContext.roomId) {
+        setSourceWall(wallClickContext.wall);
+        setTargetWall(connection.targetWall || 'west');
+      } else if (wallClickContext && connection.targetRoomId === wallClickContext.roomId) {
+        setSourceWall(connection.sourceWall || 'east');
+        setTargetWall(wallClickContext.wall);
+      } else {
+        setSourceWall(connection.sourceWall || 'east');
+        setTargetWall(connection.targetWall || 'west');
+      }
       setLabel(connection.label || '');
       setNotes(connection.notes || '');
       setHasElectricalPass(Boolean(connection.hasElectricalPass));
@@ -147,6 +167,7 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
   };
 
   const handleAddOpening = () => {
+    const initialRatio = wallClickContext?.clickRatio !== undefined ? wallClickContext.clickRatio : 0.5;
     const newOpening: OpeningProperties = {
       id: `open-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       openingType: 'puerta_estandar',
@@ -154,7 +175,7 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
       heightMeters: 2.05,
       swingDirection: 'right',
       material: 'wood',
-      offsetRatio: 0.5,
+      offsetRatio: Number(initialRatio.toFixed(3)),
       label: 'Puerta Placa'
     };
     setOpeningsList([...openingsList, newOpening]);
@@ -725,6 +746,104 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
                                 </TextField>
                               </Grid>
                             </Grid>
+
+                            {/* 📐 Posición y Medición al Marco (Replanteo en Obra) */}
+                            {(() => {
+                              const wallLen =
+                                wallClickContext?.wallLengthMeters ||
+                                (sourceWall === 'north' || sourceWall === 'south'
+                                  ? sourceRoom?.dimensions?.width || 3.0
+                                  : sourceRoom?.dimensions?.length || 2.5);
+
+                              const opWidth = opening.widthMeters || 0.8;
+                              const currentRatio = opening.offsetRatio !== undefined ? opening.offsetRatio : 0.5;
+                              const centerM = currentRatio * wallLen;
+                              const distStart = Math.max(0, Number((centerM - opWidth / 2).toFixed(2)));
+                              const distEnd = Math.max(0, Number((wallLen - (centerM + opWidth / 2)).toFixed(2)));
+
+                              const refCorner = cornerRefs[idx] || (currentRatio <= 0.5 ? 'start' : 'end');
+                              const currentMeasuredDist = refCorner === 'start' ? distStart : distEnd;
+
+                              return (
+                                <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                  <Typography variant="caption" fontWeight={700} color="#0f172a" display="block" mb={1}>
+                                    📐 POSICIÓN Y REPLANTEO EN OBRA (Largo total pared: {wallLen.toFixed(2)}m)
+                                  </Typography>
+                                  <Grid container spacing={1.5} alignItems="center">
+                                    <Grid item xs={12} sm={6}>
+                                      <TextField
+                                        select
+                                        label="Medir cota al marco desde"
+                                        value={refCorner}
+                                        onChange={(e) => {
+                                          const newRef = e.target.value as 'start' | 'end';
+                                          setCornerRefs((prev) => ({ ...prev, [idx]: newRef }));
+                                        }}
+                                        fullWidth
+                                        size="small"
+                                      >
+                                        <MenuItem value="start">
+                                          📐 Esquina Inicial ({sourceWall === 'north' || sourceWall === 'south' ? 'Izquierda / Oeste' : 'Superior / Norte'})
+                                        </MenuItem>
+                                        <MenuItem value="end">
+                                          📐 Esquina Final ({sourceWall === 'north' || sourceWall === 'south' ? 'Derecha / Este' : 'Inferior / Sur'})
+                                        </MenuItem>
+                                      </TextField>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                      <TextField
+                                        label="Distancia hasta el marco (m)"
+                                        type="number"
+                                        inputProps={{ step: 0.05, min: 0, max: Math.max(0, Number((wallLen - opWidth).toFixed(2))) }}
+                                        value={currentMeasuredDist}
+                                        onChange={(e) => {
+                                          const rawVal = parseFloat(e.target.value);
+                                          const maxDist = Math.max(0, wallLen - opWidth);
+                                          const val = isNaN(rawVal) ? 0 : Math.max(0, Math.min(maxDist, rawVal));
+                                          let newCenter = 0;
+                                          if (refCorner === 'start') {
+                                            newCenter = val + opWidth / 2;
+                                          } else {
+                                            newCenter = wallLen - val - opWidth / 2;
+                                          }
+                                          const newRatio = wallLen > 0 ? Math.max(0, Math.min(1, newCenter / wallLen)) : 0.5;
+                                          handleUpdateOpening(idx, { offsetRatio: Number(newRatio.toFixed(3)) });
+                                        }}
+                                        fullWidth
+                                        size="small"
+                                        helperText="Medición directa desde la esquina hasta el borde exterior del marco"
+                                      />
+                                    </Grid>
+                                  </Grid>
+
+                                  {/* Barra gráfica de replanteo arquitectónico */}
+                                  <Box sx={{ mt: 1.2, p: 1, bgcolor: '#ffffff', borderRadius: 1.5, border: '1px dashed #cbd5e1' }}>
+                                    <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={0.5} flexWrap="wrap">
+                                      <Chip
+                                        size="small"
+                                        label={`Esquina Inicial: ${distStart.toFixed(2)}m`}
+                                        color={refCorner === 'start' ? 'primary' : 'default'}
+                                        variant={refCorner === 'start' ? 'filled' : 'outlined'}
+                                        sx={{ fontSize: '0.7rem', height: 22, fontWeight: refCorner === 'start' ? 700 : 500 }}
+                                      />
+                                      <Chip
+                                        size="small"
+                                        label={`🚪 Marco (${opWidth.toFixed(2)}m) Marco`}
+                                        color="secondary"
+                                        sx={{ fontSize: '0.7rem', height: 22, fontWeight: 700 }}
+                                      />
+                                      <Chip
+                                        size="small"
+                                        label={`Esquina Final: ${distEnd.toFixed(2)}m`}
+                                        color={refCorner === 'end' ? 'primary' : 'default'}
+                                        variant={refCorner === 'end' ? 'filled' : 'outlined'}
+                                        sx={{ fontSize: '0.7rem', height: 22, fontWeight: refCorner === 'end' ? 700 : 500 }}
+                                      />
+                                    </Stack>
+                                  </Box>
+                                </Box>
+                              );
+                            })()}
                           </CardContent>
                         </Card>
                       );

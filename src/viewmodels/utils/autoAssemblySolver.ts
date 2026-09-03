@@ -166,16 +166,25 @@ export function applyInvasionsToRoomGeometries(
 
   return rooms.map((room) => {
     if (room.isAccessPoint || room.isTechnicalIsland) return room;
+    if (room.geometry?.mode === 'polygon') return room;
 
     const computedBreaks = breaksByRoom.get(room.id) || [];
+    const manualBreaks = (room.geometry?.wallBreaks || []).filter(
+      (b) => !b.id.startsWith('wb-invaded-')
+    );
+    const allBreaks = [...manualBreaks, ...computedBreaks];
+
     const updatedGeometry = {
       ...(room.geometry || { mode: 'rectangle' as const }),
-      wallBreaks: computedBreaks
+      wallBreaks: allBreaks
     };
 
     const tempRoom: Room = {
       ...room,
-      geometry: updatedGeometry
+      geometry: {
+        ...updatedGeometry,
+        computedVertices: undefined
+      }
     };
 
     const computedVertices = calculateRoomPolygon(tempRoom);
@@ -184,7 +193,7 @@ export function applyInvasionsToRoomGeometries(
       ...room,
       geometry: {
         ...updatedGeometry,
-        computedVertices
+        computedVertices: allBreaks.length > 0 ? computedVertices : undefined
       }
     };
   });

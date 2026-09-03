@@ -639,6 +639,7 @@ export function useSurveyViewModel() {
     handleRoomDragEnd,
     syncRoomWallAdjacencies: syncRoomWallAdjacenciesAction,
     getOrCreateWallConnection: getOrCreateWallConnectionAction,
+    setSnapGuides: setSnapGuidesAction,
 
     // Asistente de Relevamiento Incremental
     solverResult,
