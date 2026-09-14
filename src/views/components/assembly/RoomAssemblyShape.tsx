@@ -12,6 +12,7 @@ import React, { memo } from 'react';
 import { Group, Rect, Text, Line, Circle } from 'react-konva';
 import { Room, TIPO_CUBIERTA_CATALOG, isMetricRoom, WallOrientation } from '@/models/RoomModel';
 import { LogicalConnection } from '@/models/GraphModel';
+import { Abertura } from '@/models/OpeningModel';
 import { ELECTRICAL_ASSET_CATALOG } from '@/models/ElectricalTypes';
 import { metersToPixels, PIXELS_PER_METER } from '@/viewmodels/utils/geometryUtils';
 import {
@@ -27,6 +28,7 @@ interface RoomAssemblyShapeProps {
   isSelected: boolean;
   wallThicknessPx: number;
   openings: LogicalConnection[];
+  aberturas?: Abertura[];
   onSelect: (roomId: string) => void;
   onDragMove: (roomId: string, node: any) => void;
   onDragEnd: (roomId: string, node: any) => void;
@@ -39,6 +41,7 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
   isSelected,
   wallThicknessPx,
   openings,
+  aberturas = [],
   onSelect,
   onDragMove,
   onDragEnd,
@@ -266,7 +269,8 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
     room,
     allRooms,
     openings,
-    wallThicknessPx / PIXELS_PER_METER
+    wallThicknessPx / PIXELS_PER_METER,
+    aberturas
   );
 
   const polyPointsPx = verticesMeters.flatMap((v) => [metersToPixels(v.x), metersToPixels(v.y)]);
@@ -405,20 +409,19 @@ export const RoomAssemblyShape = memo<RoomAssemblyShapeProps>(({
       // Dibujar los símbolos CAD de las aberturas
       intervals.forEach((interval, idx) => {
         if (interval.shouldDrawSymbol) {
-          let openingGroupY = 0;
-          if (wall === 'south') openingGroupY = roomLengthPx;
-          if (wall === 'east') openingGroupY = 0;
-
           segElements.push(
-            <Group key={`opening-${interval.opening.id || idx}`} y={openingGroupY} listening={false}>
-              <ArchitecturalOpeningShape
-                wall={wall}
-                opening={interval.opening}
-                wallLengthPx={wallLengthPx}
-                wallThicknessPx={wallThicknessPx}
-                offsetRatio={interval.offsetRatio}
-              />
-            </Group>
+            <ArchitecturalOpeningShape
+              key={`opening-${interval.opening?.id || interval.abertura?.id || idx}`}
+              wall={wall}
+              opening={interval.opening}
+              abertura={interval.abertura}
+              wallLengthPx={wallLengthPx}
+              wallThicknessPx={wallThicknessPx}
+              roomWidthPx={roomWidthPx}
+              roomLengthPx={roomLengthPx}
+              startPx={interval.startPx}
+              offsetRatio={interval.offsetRatio}
+            />
           );
         }
       });

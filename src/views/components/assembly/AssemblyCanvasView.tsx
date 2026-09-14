@@ -163,7 +163,8 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
     wallThicknessMeters,
     setWallThickness,
     getOrCreateWallConnection,
-    updateRoomDimensions
+    updateRoomDimensions,
+    aberturas
   } = useSurveyViewModel();
 
   const syncRoomWallAdjacencies = useSurveyStore((state) => state.syncRoomWallAdjacencies);
@@ -1109,6 +1110,7 @@ export const AssemblyCanvasView: React.FC<AssemblyCanvasViewProps> = ({ onOpenAd
               isSelected={room.id === selectedRoomId}
               wallThicknessPx={wallThicknessPx}
               openings={connections}
+              aberturas={aberturas}
               onSelect={selectRoom}
               onDragMove={handleNodeDragMove}
               onDragEnd={handleNodeDragEnd}

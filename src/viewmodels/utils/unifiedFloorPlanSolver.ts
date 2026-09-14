@@ -14,10 +14,13 @@ import {
   getConnectionOpenings,
   getConnectionWallThickness
 } from '@/models/GraphModel';
+import { Abertura } from '@/models/OpeningModel';
+import { getOppositeWall } from './wallAnchorCalculator';
 import { metersToPixels, PIXELS_PER_METER } from './geometryUtils';
 
 export interface WallOpeningInterval {
   opening: OpeningProperties;
+  abertura?: Abertura;
   startPx: number;           // Coordenada local de inicio del vano en la pared
   endPx: number;             // Coordenada local de fin del vano en la pared
   widthPx: number;           // Ancho del vano en px
@@ -32,6 +35,7 @@ export interface WallSubSegment {
   type: 'solid_exterior' | 'solid_shared' | 'virtual' | 'opening';
   thicknessMeters: number;
   opening?: OpeningProperties;
+  abertura?: Abertura;
   connection?: LogicalConnection;
 }
 
@@ -42,6 +46,7 @@ export interface WallPlanimetryInfo {
   cutIntervals?: Array<{ startPx: number; endPx: number }>;
   wallThicknessMeters: number;
   openings: OpeningProperties[];
+  aberturas?: Abertura[];
   intervals: WallOpeningInterval[];
   segments: WallSubSegment[];
   connection?: LogicalConnection;
@@ -158,7 +163,8 @@ export function calculateRoomPlanimetry(
   room: Room,
   allRooms: Room[],
   connections: LogicalConnection[],
-  defaultWallThicknessMeters: number = 0.10
+  defaultWallThicknessMeters: number = 0.10,
+  allAberturas: Abertura[] = []
 ): RoomPlanimetryResult {
   const isNonMetric = !isMetricRoom(room);
   if (isNonMetric) {
@@ -167,6 +173,7 @@ export function calculateRoomPlanimetry(
       isShared: false,
       wallThicknessMeters: defaultWallThicknessMeters,
       openings: [],
+      aberturas: [],
       intervals: [],
       segments: []
     });
@@ -231,7 +238,6 @@ export function calculateRoomPlanimetry(
     }
   }
 
-  // Buscar si este ambiente es el INVADIDO por algún vecino
   // Helper para resolver la información e intervalos de una pared
   const resolveWallInfo = (wall: WallOrientation, isGeoShared: boolean): WallPlanimetryInfo => {
     const isHoriz = wall === 'north' || wall === 'south';
@@ -294,28 +300,26 @@ export function calculateRoomPlanimetry(
       return false;
     });
 
+    // Identificar vecino adyacente para muros compartidos
+    let otherRoom: Room | undefined;
+    if (conn) {
+      const otherId = conn.sourceRoomId === room.id ? conn.targetRoomId : conn.sourceRoomId;
+      otherRoom = allRooms.find((r) => r.id === otherId);
+    } else if (isGeoShared) {
+      // Buscar el vecino geométrico en este límite
+      otherRoom = otherRooms.find((o) => {
+        const oW = metersToPixels(o.dimensions?.width || 3);
+        const oH = metersToPixels(o.dimensions?.length || 2.5);
+        if (wall === 'north') return Math.abs(rTop - (o.canvasPosition.y + oH)) <= 14;
+        if (wall === 'south') return Math.abs(rBottom - o.canvasPosition.y) <= 14;
+        if (wall === 'west') return Math.abs(rLeft - (o.canvasPosition.x + oW)) <= 14;
+        if (wall === 'east') return Math.abs(rRight - o.canvasPosition.x) <= 14;
+        return false;
+      });
+    }
+
     const isShared = isGeoShared || Boolean(conn);
     const wallThicknessMeters = getConnectionWallThickness(conn, defaultWallThicknessMeters);
-
-    if (!conn) {
-      const rawSegments: WallSubSegment[] = [
-        {
-          startPx: 0,
-          endPx: wallLengthPx,
-          type: 'solid_exterior',
-          thicknessMeters: defaultWallThicknessMeters
-        }
-      ];
-      return {
-        wall,
-        isShared,
-        cutIntervals,
-        wallThicknessMeters: defaultWallThicknessMeters,
-        openings: [],
-        intervals: [],
-        segments: subtractCutsFromSegments(rawSegments, cutIntervals)
-      };
-    }
 
     const hasInvasion = Boolean(conn?.invasion && conn.invasion.type !== 'none');
     const isVirtual = !hasInvasion && Boolean(
@@ -323,9 +327,6 @@ export function calculateRoomPlanimetry(
       conn?.wallProperties?.isVirtualBoundary ||
       conn?.type === 'limite_virtual'
     );
-
-    const otherId = conn ? (conn.sourceRoomId === room.id ? conn.targetRoomId : conn.sourceRoomId) : null;
-    const otherRoom = otherId ? allRooms.find((r) => r.id === otherId) : undefined;
 
     // Calcular el segmento de contacto físico compartido en coordenadas locales [contactStartPx, contactEndPx]
     let contactStartPx = 0;
@@ -359,145 +360,181 @@ export function calculateRoomPlanimetry(
       }
     }
 
-    const segments: WallSubSegment[] = [];
+    // 🧱 Recolectar aberturas (Abertura Model + LogicalConnection Legacy)
     const intervals: WallOpeningInterval[] = [];
+    const processedIds = new Set<string>();
 
-    // Si no hay contacto real o no hay conexión, toda la pared es exterior maciza
-    if (!conn || !hasContact) {
-      segments.push({
-        startPx: 0,
-        endPx: wallLengthPx,
-        type: 'solid_exterior',
-        thicknessMeters: defaultWallThicknessMeters
+    // 1. Aberturas propias de este ambiente en esta pared
+    const roomAberturas = allAberturas.filter((a) => a.roomId === room.id && a.wall === wall);
+    roomAberturas.forEach((a) => {
+      processedIds.add(a.id);
+      const aWidthPx = Math.min(wallLengthPx, a.anchoMeters * PIXELS_PER_METER);
+      const aStartPx = Math.max(0, Math.min(wallLengthPx - aWidthPx, a.posicionMeters * PIXELS_PER_METER));
+      const aEndPx = aStartPx + aWidthPx;
+      const aCenterPx = (aStartPx + aEndPx) / 2;
+
+      intervals.push({
+        opening: {
+          id: a.id,
+          openingType: a.tipo === 'puerta' ? (a.hojas === 2 ? 'puerta_doble' : 'puerta_estandar') : a.tipo === 'ventana' ? 'ventana_estandar' : 'vano_libre',
+          widthMeters: a.anchoMeters,
+          heightMeters: a.altoMeters ?? 2.05,
+          swingDirection: a.sentidoGiro === 'izquierda' ? 'left' : 'right',
+          offsetRatio: wallLengthPx > 0 ? aCenterPx / wallLengthPx : 0.5,
+          label: a.etiqueta || ''
+        },
+        abertura: a,
+        startPx: aStartPx,
+        endPx: aEndPx,
+        widthPx: aWidthPx,
+        centerPx: aCenterPx,
+        offsetRatio: wallLengthPx > 0 ? aCenterPx / wallLengthPx : 0.5,
+        shouldDrawSymbol: true
       });
+    });
 
-      return {
-        wall,
-        isShared,
-        isVirtualBoundary: false,
-        cutIntervals,
-        wallThicknessMeters: defaultWallThicknessMeters,
-        openings: [],
-        intervals: [],
-        segments: subtractCutsFromSegments(segments, cutIntervals),
-        connection: conn
-      };
-    }
+    // 2. Aberturas del ambiente vecino en pared compartida (para cortar el muro sin duplicar el símbolo CAD)
+    if (isShared && hasContact && otherRoom) {
+      const oppWall = getOppositeWall(wall);
+      const neighborAberturas = allAberturas.filter(
+        (a) => a.roomId === otherRoom.id && (a.wall === oppWall || a.wallVecina === wall || a.ambienteVecinoId === room.id)
+      );
 
-    // 1. Tramo exterior previo al contacto (si existe)
-    if (contactStartPx > 2) {
-      segments.push({
-        startPx: 0,
-        endPx: contactStartPx,
-        type: 'solid_exterior',
-        thicknessMeters: defaultWallThicknessMeters
-      });
-    }
+      neighborAberturas.forEach((a) => {
+        if (processedIds.has(a.id)) return;
+        processedIds.add(a.id);
 
-    // 2. Tramo dentro del contacto [contactStartPx, contactEndPx]
-    if (isVirtual) {
-      // Únicamente el tramo de contacto es virtual (concepto abierto)
-      segments.push({
-        startPx: contactStartPx,
-        endPx: contactEndPx,
-        type: 'virtual',
-        thicknessMeters: 0,
-        connection: conn
-      });
-    } else {
-      // Tabique compartido físico con o sin aberturas
-      const allOps = getConnectionOpenings(conn);
-      if (allOps.length === 0) {
-        segments.push({
-          startPx: contactStartPx,
-          endPx: contactEndPx,
-          type: 'solid_shared',
-          thicknessMeters: wallThicknessMeters,
-          connection: conn
-        });
-      } else {
-        const sharedContactLength = Math.max(10, contactEndPx - contactStartPx);
-        const isResponsible = getResponsibleRoomForOpening(conn, allRooms) === room.id;
-        let currentPos = contactStartPx;
-
-        allOps.forEach((op, index) => {
-          const opWidthPx = Math.min(
-            sharedContactLength * 0.95,
-            (op.widthMeters || 0.8) * PIXELS_PER_METER
-          );
-          const ratioInShared = op.offsetRatio !== undefined
-            ? op.offsetRatio
-            : (index + 1) / (allOps.length + 1);
-
-          const centerLocal = contactStartPx + ratioInShared * sharedContactLength;
-          const startLocal = Math.max(contactStartPx, centerLocal - opWidthPx / 2);
-          const endLocal = Math.min(contactEndPx, centerLocal + opWidthPx / 2);
-
-          intervals.push({
-            opening: op,
-            startPx: startLocal,
-            endPx: endLocal,
-            widthPx: opWidthPx,
-            centerPx: centerLocal,
-            offsetRatio: centerLocal / wallLengthPx,
-            shouldDrawSymbol: isResponsible
-          });
-
-          if (startLocal - currentPos > 2) {
-            segments.push({
-              startPx: currentPos,
-              endPx: startLocal,
-              type: 'solid_shared',
-              thicknessMeters: wallThicknessMeters,
-              connection: conn
-            });
-          }
-
-          segments.push({
-            startPx: startLocal,
-            endPx: endLocal,
-            type: 'opening',
-            thicknessMeters: wallThicknessMeters,
-            opening: op,
-            connection: conn
-          });
-
-          currentPos = endLocal;
-        });
-
-        if (contactEndPx - currentPos > 2) {
-          segments.push({
-            startPx: currentPos,
-            endPx: contactEndPx,
-            type: 'solid_shared',
-            thicknessMeters: wallThicknessMeters,
-            connection: conn
-          });
+        // Alineación métrica relativa entre los orígenes de ambos ambientes
+        let relativeOffsetPx = 0;
+        if (isHoriz) {
+          relativeOffsetPx = otherRoom.canvasPosition.x - room.canvasPosition.x;
+        } else {
+          relativeOffsetPx = otherRoom.canvasPosition.y - room.canvasPosition.y;
         }
-      }
+
+        const aWidthPx = Math.min(wallLengthPx, a.anchoMeters * PIXELS_PER_METER);
+        const aStartPx = Math.max(0, Math.min(wallLengthPx - aWidthPx, a.posicionMeters * PIXELS_PER_METER + relativeOffsetPx));
+        const aEndPx = aStartPx + aWidthPx;
+        const aCenterPx = (aStartPx + aEndPx) / 2;
+
+        intervals.push({
+          opening: {
+            id: a.id,
+            openingType: a.tipo === 'puerta' ? (a.hojas === 2 ? 'puerta_doble' : 'puerta_estandar') : a.tipo === 'ventana' ? 'ventana_estandar' : 'vano_libre',
+            widthMeters: a.anchoMeters,
+            heightMeters: a.altoMeters ?? 2.05,
+            swingDirection: a.sentidoGiro === 'izquierda' ? 'left' : 'right',
+            offsetRatio: wallLengthPx > 0 ? aCenterPx / wallLengthPx : 0.5,
+            label: a.etiqueta || ''
+          },
+          abertura: a,
+          startPx: aStartPx,
+          endPx: aEndPx,
+          widthPx: aWidthPx,
+          centerPx: aCenterPx,
+          offsetRatio: wallLengthPx > 0 ? aCenterPx / wallLengthPx : 0.5,
+          shouldDrawSymbol: false // El vecino dibuja el símbolo CAD; este ambiente solo abre el paso
+        });
+      });
     }
 
-    // 3. Tramo exterior posterior al contacto (si existe)
-    if (wallLengthPx - contactEndPx > 2) {
-      segments.push({
-        startPx: contactEndPx,
-        endPx: wallLengthPx,
-        type: 'solid_exterior',
-        thicknessMeters: defaultWallThicknessMeters
+    // 3. Aberturas legacy de LogicalConnection
+    if (conn) {
+      const allOps = getConnectionOpenings(conn);
+      const sharedContactLength = Math.max(10, contactEndPx - contactStartPx);
+      const isResponsible = getResponsibleRoomForOpening(conn, allRooms) === room.id;
+
+      allOps.forEach((op, index) => {
+        if (op.id && processedIds.has(op.id)) return;
+        if (op.id) processedIds.add(op.id);
+
+        const opWidthPx = Math.min(sharedContactLength * 0.95, (op.widthMeters || 0.8) * PIXELS_PER_METER);
+        const ratioInShared = op.offsetRatio !== undefined ? op.offsetRatio : (index + 1) / (allOps.length + 1);
+        const centerLocal = contactStartPx + ratioInShared * sharedContactLength;
+        const startLocal = Math.max(contactStartPx, centerLocal - opWidthPx / 2);
+        const endLocal = Math.min(contactEndPx, centerLocal + opWidthPx / 2);
+
+        intervals.push({
+          opening: op,
+          startPx: startLocal,
+          endPx: endLocal,
+          widthPx: opWidthPx,
+          centerPx: centerLocal,
+          offsetRatio: wallLengthPx > 0 ? centerLocal / wallLengthPx : 0.5,
+          shouldDrawSymbol: isResponsible
+        });
       });
     }
 
     intervals.sort((a, b) => a.startPx - b.startPx);
 
+    // 4. Generación de tramos de pared (Segments) cortados limpiamente por las aberturas
+    const baselineSegments: WallSubSegment[] = [];
+
+    if (!isShared || !hasContact) {
+      baselineSegments.push({
+        startPx: 0,
+        endPx: wallLengthPx,
+        type: 'solid_exterior',
+        thicknessMeters: defaultWallThicknessMeters
+      });
+    } else {
+      if (contactStartPx > 2) {
+        baselineSegments.push({
+          startPx: 0,
+          endPx: contactStartPx,
+          type: 'solid_exterior',
+          thicknessMeters: defaultWallThicknessMeters
+        });
+      }
+
+      if (contactEndPx - contactStartPx > 2) {
+        baselineSegments.push({
+          startPx: contactStartPx,
+          endPx: contactEndPx,
+          type: isVirtual ? 'virtual' : 'solid_shared',
+          thicknessMeters: isVirtual ? 0 : wallThicknessMeters,
+          connection: conn
+        });
+      }
+
+      if (wallLengthPx - contactEndPx > 2) {
+        baselineSegments.push({
+          startPx: contactEndPx,
+          endPx: wallLengthPx,
+          type: 'solid_exterior',
+          thicknessMeters: defaultWallThicknessMeters
+        });
+      }
+    }
+
+    // Cortar los vanos de las secciones sólidas
+    const openingCuts = intervals.map((int) => ({ startPx: int.startPx, endPx: int.endPx }));
+    const solidAfterOpenings = subtractCutsFromSegments(baselineSegments, openingCuts);
+
+    // Insertar tramos de tipo 'opening' en las posiciones exactas
+    const openingSegments: WallSubSegment[] = intervals.map((int) => ({
+      startPx: int.startPx,
+      endPx: int.endPx,
+      type: 'opening',
+      thicknessMeters: wallThicknessMeters,
+      opening: int.opening,
+      abertura: int.abertura,
+      connection: conn
+    }));
+
+    const allSegments = [...solidAfterOpenings, ...openingSegments].sort((a, b) => a.startPx - b.startPx);
+
     return {
       wall,
-      isShared: true,
+      isShared,
       isVirtualBoundary: isVirtual,
       cutIntervals,
       wallThicknessMeters,
-      openings: getConnectionOpenings(conn),
+      openings: intervals.map((i) => i.opening),
+      aberturas: intervals.map((i) => i.abertura).filter((a): a is Abertura => Boolean(a)),
       intervals,
-      segments: subtractCutsFromSegments(segments, cutIntervals),
+      segments: subtractCutsFromSegments(allSegments, cutIntervals),
       connection: conn
     };
   };

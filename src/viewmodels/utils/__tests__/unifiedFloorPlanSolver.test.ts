@@ -187,4 +187,55 @@ describe('calculateRoomPlanimetry', () => {
     const northSegmentsB = planimetryB.north.segments;
     expect(northSegmentsB.length).toBe(0);
   });
+
+  it('cuts exterior wall when an Abertura (e.g. window) is placed on it', () => {
+    const roomA: Room = {
+      id: 'room-a',
+      name: 'Living',
+      type: 'living',
+      dimensions: { width: 5.0, length: 4.0, height: 2.6 },
+      canvasPosition: { x: 0, y: 0 },
+      topologyPosition: { x: 0, y: 0 },
+      electricalAssets: [],
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+
+    const ventana = {
+      id: 'ab-v1',
+      roomId: 'room-a',
+      wall: 'south' as const,
+      posicionMeters: 1.5,
+      anchoMeters: 2.0,
+      altoMeters: 1.2,
+      tipo: 'ventana' as const,
+      subtipo: 'corrediza' as const,
+      hojas: 2 as const,
+      ladoApertura: 'interior' as const,
+      sentidoGiro: 'derecha' as const
+    };
+
+    const planimetry = calculateRoomPlanimetry(roomA, [roomA], [], 0.15, [ventana]);
+
+    expect(planimetry.south.intervals.length).toBe(1);
+    expect(planimetry.south.intervals[0].shouldDrawSymbol).toBe(true);
+    expect(planimetry.south.intervals[0].startPx).toBeCloseTo(metersToPixels(1.5), 1);
+    expect(planimetry.south.intervals[0].endPx).toBeCloseTo(metersToPixels(3.5), 1);
+
+    // Los segmentos sólidos deben dividirse en 2 tramos y 1 tramo de tipo 'opening'
+    const southSegments = planimetry.south.segments;
+    const openingSegs = southSegments.filter((s) => s.type === 'opening');
+    const solidSegs = southSegments.filter((s) => s.type === 'solid_exterior');
+
+    expect(openingSegs.length).toBe(1);
+    expect(openingSegs[0].startPx).toBeCloseTo(metersToPixels(1.5), 1);
+    expect(openingSegs[0].endPx).toBeCloseTo(metersToPixels(3.5), 1);
+
+    expect(solidSegs.length).toBe(2);
+    expect(solidSegs[0].startPx).toBeCloseTo(0, 1);
+    expect(solidSegs[0].endPx).toBeCloseTo(metersToPixels(1.5), 1);
+    expect(solidSegs[1].startPx).toBeCloseTo(metersToPixels(3.5), 1);
+    expect(solidSegs[1].endPx).toBeCloseTo(metersToPixels(5.0), 1);
+  });
 });
+

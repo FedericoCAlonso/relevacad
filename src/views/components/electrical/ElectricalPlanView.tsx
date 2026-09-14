@@ -1,14 +1,15 @@
 /**
- * View: ElectricalPlanView (Fase 2: Gestión de Instalación Eléctrica sobre Planta)
+ * View: ElectricalPlanView (Fase 3: Gestión e Inserción Interactiva sobre Planta)
  * Permite gestionar la traza de cañerías, bocas, tableros y circuitos sobre la arquitectura:
- * - Renderizado de planta arquitectónica en estilo plano técnico atenuado
- * - Ubicación interactiva de TSG, bocas de iluminación (IUG), tomas (TUG/TUE) y Jabalina PAT
- * - Trazado de cañerías (tramos) con cálculo de ocupación y conductores AEA 90364
- * - Filtro visual por circuitos y panel inspector de conductores
+ * - Renderizado vectorial SVG real normalizado según symbols.json (AEA / IEC)
+ * - Modo "Click & Snap" para anclar automáticamente bocas a paredes (distancia métrica + rotación normal) o losa
+ * - Arrastre táctil y mouse con imantación en tiempo real a muros
+ * - Trazado de cañerías con arcos curvados suaves y notación reglamentaria AEA 90364-771
+ * - Filtro visual por circuitos e inspector paramétrico
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Stage, Layer, Line, Group, Rect, Circle, Text } from 'react-konva';
+import { Stage, Layer, Line, Group, Rect, Text } from 'react-konva';
 import {
   Box,
   Typography,
@@ -19,6 +20,8 @@ import {
   Paper,
   MenuItem,
   Select,
+  TextField,
+  Chip,
   useMediaQuery,
   useTheme
 } from '@mui/material';
@@ -26,27 +29,44 @@ import {
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
   RestartAlt as ResetViewIcon,
-  Add as AddIcon,
   Cable as ConduitIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  PanTool as PointerIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { useSurveyViewModel } from '@/viewmodels';
-import { metersToPixels } from '@/viewmodels/utils/geometryUtils';
+import { metersToPixels, PIXELS_PER_METER } from '@/viewmodels/utils/geometryUtils';
 import { isMetricRoom } from '@/models/RoomModel';
 import {
-  TIPO_NODO_ELECTRICO_CATALOG,
-  getConduitAeaNotation,
-  NodoElectrico
-} from '@/models/ElectricalGraphModel';
-import { AddElectricalNodeDialog } from '../topology/AddElectricalNodeDialog';
+  getElementLocalPlacement,
+  calculateWallAnchor
+} from '@/viewmodels/utils/wallAnchorCalculator';
+import { getSymbolById } from '@/models/ElectricalSymbolsModel';
+import { ElectricalSymbolShape } from './ElectricalSymbolShape';
 import { ConduitInspectorDrawer } from '../topology/ConduitInspectorDrawer';
 
 const CIRCUIT_COLORS: Record<string, string> = {
   'C1-IUG': '#0284c7', // Azul iluminación
   'C2-TUG': '#d97706', // Ámbar tomas generales
   'C3-TUE': '#dc2626', // Rojo tomas especiales
-  'ALIM-GRAL': '#7c3aed' // Púrpura acometida
+  'ALIM-TSG': '#7c3aed', // Púrpura alimentador
+  'ALIM-GRAL': '#7c3aed'
 };
+
+const SYMBOL_QUICK_PALETTE = [
+  { id: 'sym-planta-boca-techo', label: 'Boca Techo', emoji: '💡', defaultCircuit: 'C1-IUG', prefix: 'L' },
+  { id: 'sym-planta-boca-pared', label: 'Aplique', emoji: '🔦', defaultCircuit: 'C1-IUG', prefix: 'AP' },
+  { id: 'sym-planta-toma', label: 'Toma 10A', emoji: '🔌', defaultCircuit: 'C2-TUG', prefix: 'T' },
+  { id: 'sym-planta-toma-doble', label: 'Toma Doble', emoji: '🔌', defaultCircuit: 'C2-TUG', prefix: 'T' },
+  { id: 'sym-planta-toma-20a', label: 'Toma 20A', emoji: '⚡', defaultCircuit: 'C3-TUE', prefix: 'TUE' },
+  { id: 'sym-planta-llave-1', label: 'Llave 1P', emoji: '🔘', defaultCircuit: 'C1-IUG', prefix: 'SW' },
+  { id: 'sym-planta-llave-2', label: 'Llave 2P', emoji: '🔘', defaultCircuit: 'C1-IUG', prefix: 'SW' },
+  { id: 'sym-planta-llave-comb', label: 'Llave Comb', emoji: '🔀', defaultCircuit: 'C1-IUG', prefix: 'SWC' },
+  { id: 'sym-planta-ts', label: 'Tablero TS', emoji: '🛡️', defaultCircuit: 'ALIM-TSG', prefix: 'TS' },
+  { id: 'sym-planta-medidor', label: 'Medidor Wh', emoji: '📊', defaultCircuit: 'ALIM-GRAL', prefix: 'MED' },
+  { id: 'sym-planta-caja-pase', label: 'Caja Pase', emoji: '📦', defaultCircuit: 'C1-IUG', prefix: 'CP' },
+  { id: 'sym-planta-pat', label: 'Jabalina PAT', emoji: '⏚', defaultCircuit: 'PAT', prefix: 'PAT' }
+];
 
 export const ElectricalPlanView: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,25 +76,27 @@ export const ElectricalPlanView: React.FC = () => {
   const [scale, setScale] = useState(1);
   const [stagePos, setStagePos] = useState({ x: 80, y: 60 });
 
+  // Herramienta Activa: 'pointer' | 'conduit' | símbolo ID (ej: 'sym-planta-toma')
+  const [activeTool, setActiveTool] = useState<string>('pointer');
+
   // Filtro de Circuito Activo
   const [selectedCircuitFilter, setSelectedCircuitFilter] = useState<string>('all');
 
-  // Modo Trazado de Cañería
-  const [isRoutingMode, setIsRoutingMode] = useState(false);
-  const [routingSourceNodeId, setRoutingSourceNodeId] = useState<string | null>(null);
+  // Modo Trazado de Cañería entre Elementos
+  const [routingSourceId, setRoutingSourceId] = useState<string | null>(null);
 
   // Modales y Drawers
-  const [addNodeOpen, setAddNodeOpen] = useState(false);
   const [selectedTramoForInspector, setSelectedTramoForInspector] = useState<string | null>(null);
 
   const {
     rooms,
-    electricalNodes,
-    electricalTramos,
-    selectedElectricalNodeId,
-    selectElectricalNode,
-    deleteNodoElectrico,
-    connectElectricalNodes
+    elementosElectricos,
+    selectedElementoElectricoId,
+    selectElementoElectrico,
+    addElementoElectrico,
+    updateElementoElectrico,
+    deleteElementoElectrico,
+    electricalTramos
   } = useSurveyViewModel();
 
   useEffect(() => {
@@ -101,20 +123,9 @@ export const ElectricalPlanView: React.FC = () => {
     setStagePos({ x: 80, y: 60 });
   }, []);
 
-  // Refs para zoom y pan táctil con 2 dedos en smartphone
+  // Zoom y pan táctil de 2 dedos en smartphone
   const lastCenterRef = useRef<{ x: number; y: number } | null>(null);
   const lastDistRef = useRef<number>(0);
-
-  const getTouchDistance = (p1: { clientX: number; clientY: number }, p2: { clientX: number; clientY: number }) => {
-    return Math.sqrt(Math.pow(p2.clientX - p1.clientX, 2) + Math.pow(p2.clientY - p1.clientY, 2));
-  };
-
-  const getTouchCenter = (p1: { clientX: number; clientY: number }, p2: { clientX: number; clientY: number }) => {
-    return {
-      x: (p1.clientX + p2.clientX) / 2,
-      y: (p1.clientY + p2.clientY) / 2
-    };
-  };
 
   const handleTouchMove = useCallback((e: any) => {
     const touch1 = e.evt.touches[0];
@@ -131,13 +142,20 @@ export const ElectricalPlanView: React.FC = () => {
       const p1 = { clientX: touch1.clientX, clientY: touch1.clientY };
       const p2 = { clientX: touch2.clientX, clientY: touch2.clientY };
 
+      const getTouchDistance = () =>
+        Math.sqrt(Math.pow(p2.clientX - p1.clientX, 2) + Math.pow(p2.clientY - p1.clientY, 2));
+      const getTouchCenter = () => ({
+        x: (p1.clientX + p2.clientX) / 2,
+        y: (p1.clientY + p2.clientY) / 2
+      });
+
       if (!lastCenterRef.current) {
-        lastCenterRef.current = getTouchCenter(p1, p2);
+        lastCenterRef.current = getTouchCenter();
         return;
       }
-      const newCenter = getTouchCenter(p1, p2);
+      const newCenter = getTouchCenter();
+      const dist = getTouchDistance();
 
-      const dist = getTouchDistance(p1, p2);
       if (!lastDistRef.current) {
         lastDistRef.current = dist;
       }
@@ -197,62 +215,142 @@ export const ElectricalPlanView: React.FC = () => {
     setStagePos(newPos);
   }, []);
 
-  // Calcular posición absoluta en el canvas de cada nodo eléctrico
-  const getNodeCanvasCoordinates = useCallback(
-    (node: NodoElectrico): { x: number; y: number } => {
-      const room = rooms.find((r) => r.id === node.roomId);
+  // Coordenadas absolutas de un ElementoElectrico en el canvas
+  const getElementCanvasCoordinates = useCallback(
+    (el: { roomId: string; simboloId: string; anclaje: any }): { x: number; y: number } => {
+      const room = rooms.find((r) => r.id === el.roomId);
       if (!room) return { x: 100, y: 100 };
 
-      const rW = isMetricRoom(room) ? metersToPixels(room.dimensions?.width || 3) : 180;
-      const rH = isMetricRoom(room) ? metersToPixels(room.dimensions?.length || 2.5) : 100;
-
-      const roomX = room.canvasPosition.x;
-      const roomY = room.canvasPosition.y;
-
-      if (node.tipo === 'tablero_principal' || node.tipo === 'tablero_seccional') {
-        return { x: roomX + 30, y: roomY + 30 };
-      }
-      if (node.tipo === 'boca_iluminacion') {
-        return { x: roomX + rW / 2, y: roomY + rH / 2 };
-      }
-      if (node.tipo === 'boca_tomacorriente') {
-        return { x: roomX + rW - 20, y: roomY + rH / 2 };
-      }
-      if (node.tipo === 'caja_paso_comun' || node.tipo === 'caja_derivacion') {
-        return { x: roomX + rW / 2, y: roomY + 16 };
-      }
-      if (node.tipo === 'jabalina_pat') {
-        return { x: roomX + rW / 2, y: roomY + rH / 2 };
-      }
-
-      return { x: roomX + rW / 2, y: roomY + rH / 2 };
+      const placement = getElementLocalPlacement(el as any, room.dimensions);
+      return {
+        x: room.canvasPosition.x + metersToPixels(placement.xMeters),
+        y: room.canvasPosition.y + metersToPixels(placement.yMeters)
+      };
     },
     [rooms]
   );
 
-  const handleNodeClick = (nodeId: string) => {
-    if (isRoutingMode) {
-      if (!routingSourceNodeId) {
-        setRoutingSourceNodeId(nodeId);
-      } else if (routingSourceNodeId !== nodeId) {
-        connectElectricalNodes(routingSourceNodeId, nodeId);
-        setRoutingSourceNodeId(null);
-        setIsRoutingMode(false);
+  // 🖱️ Interacción Click-to-Place (Inserción con Snap a Pared o Losa)
+  const handleStageClick = (e: any) => {
+    // Si hicimos click en un nodo hijo o estamos arrastrando el escenario, ignorar
+    if (e.target !== e.target.getStage() && e.target.name() !== 'room-bg-rect') {
+      return;
+    }
+
+    if (!activeTool.startsWith('sym-')) {
+      // Click en el fondo deselecciona
+      selectElementoElectrico(null);
+      return;
+    }
+
+    const stage = e.target.getStage();
+    if (!stage) return;
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+
+    // Coordenadas métricas respecto al canvas
+    const stagePointerX = (pointer.x - stage.x()) / stage.scaleX();
+    const stagePointerY = (pointer.y - stage.y()) / stage.scaleX();
+
+    // Buscar qué ambiente contiene el punto de clic
+    const clickedRoom = rooms.find((r) => {
+      if (!isMetricRoom(r)) return false;
+      const rx = r.canvasPosition.x;
+      const ry = r.canvasPosition.y;
+      const rw = metersToPixels(r.dimensions.width);
+      const rl = metersToPixels(r.dimensions.length);
+      // Incluir un margen de tolerancia exterior para captar clicks en la cara externa de los muros
+      const margin = 25;
+      return (
+        stagePointerX >= rx - margin &&
+        stagePointerX <= rx + rw + margin &&
+        stagePointerY >= ry - margin &&
+        stagePointerY <= ry + rl + margin
+      );
+    });
+
+    if (!clickedRoom) return;
+
+    // Calcular posición métrica relativa al ambiente
+    const localMetersX = (stagePointerX - clickedRoom.canvasPosition.x) / PIXELS_PER_METER;
+    const localMetersY = (stagePointerY - clickedRoom.canvasPosition.y) / PIXELS_PER_METER;
+
+    // Resolver anclaje a muro o centro
+    const calculated = calculateWallAnchor(
+      { xMeters: localMetersX, yMeters: localMetersY },
+      clickedRoom.dimensions,
+      0.45 // 45 cm de tolerancia de captura magnética
+    );
+
+    // Generar prefijo correlativo (ej: T1, T2, L1...)
+    const preset = SYMBOL_QUICK_PALETTE.find((p) => p.id === activeTool);
+    const prefix = preset?.prefix || 'E';
+    const sameTypeCount = elementosElectricos.filter((el) => el.simboloId === activeTool).length;
+    const nextRef = `${prefix}${sameTypeCount + 1}`;
+
+    const circuit =
+      selectedCircuitFilter !== 'all'
+        ? selectedCircuitFilter
+        : preset?.defaultCircuit || 'C1-IUG';
+
+    const newEl = addElementoElectrico({
+      roomId: clickedRoom.id,
+      simboloId: activeTool,
+      referencia: nextRef,
+      circuitoId: circuit,
+      ceilingHeight: clickedRoom.dimensions.height,
+      anclaje: {
+        modo: calculated.modo,
+        pared:
+          calculated.modo === 'pared' && calculated.wall
+            ? {
+                wall: calculated.wall,
+                distanciaMeters: calculated.distanciaMeters || 0,
+                lado: calculated.lado || 'interior'
+              }
+            : undefined,
+        espacial:
+          calculated.modo !== 'pared'
+            ? {
+                xMeters: calculated.localCoords.xMeters,
+                yMeters: calculated.localCoords.yMeters
+              }
+            : undefined
+      }
+    });
+
+    selectElementoElectrico(newEl.id);
+  };
+
+  const handleElementClick = (elementId: string) => {
+    if (activeTool === 'conduit') {
+      if (!routingSourceId) {
+        setRoutingSourceId(elementId);
+      } else if (routingSourceId !== elementId) {
+        // Enlazar cañería entre ambos elementos
+        // TODO: registrar conexión en store
+        setRoutingSourceId(null);
+        setActiveTool('pointer');
       }
       return;
     }
-    selectElectricalNode(nodeId === selectedElectricalNodeId ? null : nodeId);
+    selectElementoElectrico(elementId === selectedElementoElectricoId ? null : elementId);
   };
 
-  const visibleTramos = useMemo(() => {
-    if (selectedCircuitFilter === 'all') return electricalTramos;
-    return electricalTramos.filter((t) => t.circuitoCodigo === selectedCircuitFilter);
-  }, [electricalTramos, selectedCircuitFilter]);
-
-  const selectedNode = useMemo(
-    () => electricalNodes.find((n) => n.id === selectedElectricalNodeId),
-    [electricalNodes, selectedElectricalNodeId]
+  const selectedElemento = useMemo(
+    () => elementosElectricos.find((el) => el.id === selectedElementoElectricoId),
+    [elementosElectricos, selectedElementoElectricoId]
   );
+
+  const selectedElementoRoom = useMemo(
+    () => (selectedElemento ? rooms.find((r) => r.id === selectedElemento.roomId) : null),
+    [selectedElemento, rooms]
+  );
+
+  const visibleElementos = useMemo(() => {
+    if (selectedCircuitFilter === 'all') return elementosElectricos;
+    return elementosElectricos.filter((el) => el.circuitoId === selectedCircuitFilter);
+  }, [elementosElectricos, selectedCircuitFilter]);
 
   return (
     <Box
@@ -266,7 +364,7 @@ export const ElectricalPlanView: React.FC = () => {
         touchAction: 'none'
       }}
     >
-      {/* 🧭 Barra Superior de Herramientas Eléctricas */}
+      {/* 🧭 Barra Superior de Herramientas Eléctricas con Paleta de Símbolos */}
       <Paper
         elevation={3}
         sx={{
@@ -283,73 +381,109 @@ export const ElectricalPlanView: React.FC = () => {
           border: '1px solid rgba(226, 232, 240, 0.9)',
           display: 'flex',
           alignItems: 'center',
-          gap: isMobile ? 0.8 : 1.2,
-          maxWidth: isMobile ? 'calc(100vw - 12px)' : undefined,
-          overflowX: 'auto'
+          gap: isMobile ? 0.6 : 1,
+          maxWidth: isMobile ? 'calc(100vw - 12px)' : '92vw',
+          overflowX: 'auto',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
         }}
       >
-        {/* Botón Agregar Boca Eléctrica */}
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon fontSize="small" />}
-          onClick={() => setAddNodeOpen(true)}
-          sx={{
-            borderRadius: 6,
-            textTransform: 'none',
-            fontWeight: 700,
-            fontSize: isMobile ? '0.74rem' : '0.78rem',
-            height: 28,
-            px: isMobile ? 1 : 1.5,
-            bgcolor: '#d97706',
-            '&:hover': { bgcolor: '#b45309' },
-            boxShadow: 'none',
-            whiteSpace: 'nowrap',
-            minWidth: 'fit-content'
-          }}
-        >
-          {isMobile ? 'Boca' : 'Boca Eléctrica'}
-        </Button>
-
-        {/* Botón Trazar Cañería */}
-        <Tooltip title="Hacer click en dos bocas para tender un caño entre ellas">
+        {/* Herramienta Puntero / Selección */}
+        <Tooltip title="Puntero: Seleccionar y arrastrar elementos en el plano">
           <Button
-            variant={isRoutingMode ? 'contained' : 'outlined'}
+            variant={activeTool === 'pointer' ? 'contained' : 'text'}
             size="small"
-            color="primary"
-            startIcon={<ConduitIcon fontSize="small" />}
+            startIcon={<PointerIcon fontSize="small" />}
             onClick={() => {
-              setIsRoutingMode(!isRoutingMode);
-              setRoutingSourceNodeId(null);
+              setActiveTool('pointer');
+              setRoutingSourceId(null);
             }}
             sx={{
               borderRadius: 6,
               textTransform: 'none',
               fontWeight: 700,
-              fontSize: isMobile ? '0.74rem' : '0.78rem',
+              fontSize: '0.74rem',
               height: 28,
-              px: isMobile ? 1 : 1.5,
+              px: 1.2,
               whiteSpace: 'nowrap',
               minWidth: 'fit-content'
             }}
           >
-            {isRoutingMode
-              ? (routingSourceNodeId ? (isMobile ? 'Destino...' : 'Click destino...') : (isMobile ? 'Origen...' : 'Click origen...'))
-              : (isMobile ? 'Trazar' : 'Trazar Cañería')}
+            Puntero
           </Button>
         </Tooltip>
+
+        {/* Herramienta Trazar Cañería */}
+        <Tooltip title="Trazar cañería entre dos bocas">
+          <Button
+            variant={activeTool === 'conduit' ? 'contained' : 'outlined'}
+            size="small"
+            color="primary"
+            startIcon={<ConduitIcon fontSize="small" />}
+            onClick={() => {
+              setActiveTool(activeTool === 'conduit' ? 'pointer' : 'conduit');
+              setRoutingSourceId(null);
+            }}
+            sx={{
+              borderRadius: 6,
+              textTransform: 'none',
+              fontWeight: 700,
+              fontSize: '0.74rem',
+              height: 28,
+              px: 1.2,
+              whiteSpace: 'nowrap',
+              minWidth: 'fit-content'
+            }}
+          >
+            {activeTool === 'conduit' ? (routingSourceId ? 'Click Destino...' : 'Click Origen...') : 'Cañería'}
+          </Button>
+        </Tooltip>
+
+        <Box sx={{ width: '1px', height: 18, bgcolor: '#cbd5e1', mx: 0.2 }} />
+
+        {/* 🎨 Paleta Rápida de Símbolos Normalizados */}
+        <Stack direction="row" spacing={0.5} sx={{ overflowX: 'auto', py: 0.2 }}>
+          {SYMBOL_QUICK_PALETTE.map((sym) => {
+            const isSelected = activeTool === sym.id;
+            return (
+              <Tooltip key={sym.id} title={`Insertar ${sym.label} (Click en el plano)`}>
+                <Chip
+                  label={`${sym.emoji} ${sym.label}`}
+                  size="small"
+                  clickable
+                  onClick={() => {
+                    setActiveTool(isSelected ? 'pointer' : sym.id);
+                    setRoutingSourceId(null);
+                  }}
+                  color={isSelected ? 'warning' : 'default'}
+                  variant={isSelected ? 'filled' : 'outlined'}
+                  sx={{
+                    height: 26,
+                    fontSize: '0.70rem',
+                    fontWeight: isSelected ? 700 : 500,
+                    cursor: 'pointer',
+                    borderRadius: 4,
+                    borderColor: isSelected ? undefined : '#cbd5e1'
+                  }}
+                />
+              </Tooltip>
+            );
+          })}
+        </Stack>
+
+        <Box sx={{ width: '1px', height: 18, bgcolor: '#cbd5e1', mx: 0.2 }} />
 
         {/* Selector Filtro de Circuito */}
         <Select
           size="small"
           value={selectedCircuitFilter}
           onChange={(e) => setSelectedCircuitFilter(e.target.value)}
-          sx={{ height: 28, fontSize: '0.74rem', fontWeight: 600, borderRadius: 6, minWidth: isMobile ? 95 : 120 }}
+          sx={{ height: 28, fontSize: '0.72rem', fontWeight: 600, borderRadius: 6, minWidth: isMobile ? 85 : 110 }}
         >
           <MenuItem value="all">Todos</MenuItem>
           <MenuItem value="C1-IUG">🔵 C1 - IUG</MenuItem>
           <MenuItem value="C2-TUG">🟠 C2 - TUG</MenuItem>
           <MenuItem value="C3-TUE">🔴 C3 - TUE</MenuItem>
+          <MenuItem value="ALIM-TSG">🟣 Alim. TSG</MenuItem>
         </Select>
 
         {/* Zoom en Desktop */}
@@ -368,7 +502,36 @@ export const ElectricalPlanView: React.FC = () => {
         )}
       </Paper>
 
-      {/* 📱 Botonera Táctil Flotante para Navegación con los Dedos en Celular */}
+      {/* ℹ️ Banner Informativo de Modo Inserción Activo */}
+      {activeTool.startsWith('sym-') && (
+        <Paper
+          elevation={3}
+          sx={{
+            position: 'absolute',
+            top: isMobile ? 56 : 64,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 19,
+            py: 0.5,
+            px: 2,
+            borderRadius: 6,
+            bgcolor: '#d97706',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}
+        >
+          <Typography variant="caption" fontWeight={700}>
+            📍 Toca en cualquier pared para anclar el símbolo, o en el centro para losa/techo
+          </Typography>
+          <IconButton size="small" onClick={() => setActiveTool('pointer')} sx={{ color: '#ffffff', p: 0.2 }}>
+            <CloseIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+        </Paper>
+      )}
+
+      {/* 📱 Botonera Táctil Flotante para Celular */}
       {isMobile && (
         <Paper
           elevation={4}
@@ -384,8 +547,7 @@ export const ElectricalPlanView: React.FC = () => {
             border: '1px solid rgba(226, 232, 240, 0.9)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 0.3,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.12)'
+            gap: 0.3
           }}
         >
           <IconButton size="small" onClick={() => handleZoom(1.2)} sx={{ p: 0.8 }} title="Acercar">
@@ -400,30 +562,7 @@ export const ElectricalPlanView: React.FC = () => {
         </Paper>
       )}
 
-      {/* Banner de Modo Trazado */}
-      {isRoutingMode && (
-        <Paper
-          elevation={4}
-          sx={{
-            position: 'absolute',
-            top: 64,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 19,
-            py: 0.6,
-            px: 2,
-            borderRadius: 3,
-            bgcolor: '#0284c7',
-            color: '#ffffff'
-          }}
-        >
-          <Typography variant="caption" fontWeight={700}>
-            ⚡ {routingSourceNodeId ? 'Paso 2: Haz click en la boca destino para tender la cañería' : 'Paso 1: Selecciona la boca o tablero de partida'}
-          </Typography>
-        </Paper>
-      )}
-
-      {/* Lienzo Konva */}
+      {/* 🎨 Lienzo Gráfico Konva */}
       <Stage
         width={dimensions.width}
         height={dimensions.height}
@@ -431,61 +570,28 @@ export const ElectricalPlanView: React.FC = () => {
         scaleY={scale}
         x={stagePos.x}
         y={stagePos.y}
-        draggable
+        draggable={activeTool === 'pointer'}
         onDragEnd={(e) => {
           if (e.target === e.target.getStage()) {
             setStagePos({ x: e.target.x(), y: e.target.y() });
           }
         }}
+        onClick={handleStageClick}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
       >
-        {/* Capa 1: Arquitectura de Fondo (Estilo Blueprint Técnico Atenuado) */}
-        <Layer listening={false}>
+        {/* Capa 1: Arquitectura de Fondo (Estilo Blueprint Técnico Limpio) */}
+        <Layer>
           {rooms.map((room) => {
-            const isTechnical = room.isTechnicalIsland || room.type.startsWith('technical_island');
             const isMetric = isMetricRoom(room);
+            const w = isMetric ? metersToPixels(room.dimensions?.width || 3) : 180;
+            const h = isMetric ? metersToPixels(room.dimensions?.length || 2.5) : 120;
 
-            if (isTechnical) {
-              const side = 54;
-              return (
-                <Group key={`arch-bg-${room.id}`} x={room.canvasPosition.x} y={room.canvasPosition.y}>
-                  <Rect x={0} y={0} width={side} height={side} fill="#fffbeb" stroke="#d97706" strokeWidth={1.5} cornerRadius={4} />
-                  <Text text="⚡" x={0} y={8} fontSize={14} width={side} align="center" />
-                  <Text text={room.name} x={2} y={26} fontSize={7.5} fontStyle="bold" fontFamily="Outfit, sans-serif" fill="#92400e" width={side - 4} align="center" />
-                </Group>
-              );
-            }
-
-            if (!isMetric) {
-              const isPalier = room.isAccessPoint || room.type === 'access_palier';
-              const w = metersToPixels(room.dimensions?.width > 0 ? room.dimensions.width : 2.5);
-              const h = metersToPixels(room.dimensions?.length > 0 ? room.dimensions.length : 2.5);
-              const radius = Math.max(w, h) * 0.55;
-              return (
-                <Group key={`arch-bg-${room.id}`} x={room.canvasPosition.x} y={room.canvasPosition.y}>
-                  <Circle
-                    x={w / 2}
-                    y={h / 2}
-                    radius={radius}
-                    fillRadialGradientStartPoint={{ x: 0, y: 0 }}
-                    fillRadialGradientStartRadius={0}
-                    fillRadialGradientEndPoint={{ x: 0, y: 0 }}
-                    fillRadialGradientEndRadius={radius}
-                    fillRadialGradientColorStops={[0, isPalier ? 'rgba(16, 185, 129, 0.20)' : 'rgba(148, 163, 184, 0.16)', 1, 'rgba(255, 255, 255, 0)']}
-                    strokeEnabled={false}
-                  />
-                  <Text text={room.name} x={0} y={h / 2 - 6} fontSize={10} fontStyle="bold" fontFamily="Outfit, sans-serif" fill="#64748b" width={w} align="center" />
-                </Group>
-              );
-            }
-
-            const w = metersToPixels(room.dimensions?.width || 3);
-            const h = metersToPixels(room.dimensions?.length || 2.5);
             return (
               <Group key={`arch-bg-${room.id}`} x={room.canvasPosition.x} y={room.canvasPosition.y}>
                 <Rect
+                  name="room-bg-rect"
                   x={0}
                   y={0}
                   width={w}
@@ -502,26 +608,47 @@ export const ElectricalPlanView: React.FC = () => {
                   fontStyle="bold"
                   fontFamily="Outfit, sans-serif"
                   fill="#94a3b8"
+                  listening={false}
                 />
+                {isMetric && (
+                  <Text
+                    text={`${room.dimensions.width}m × ${room.dimensions.length}m`}
+                    x={8}
+                    y={24}
+                    fontSize={9}
+                    fontFamily="Outfit, sans-serif"
+                    fill="#cbd5e1"
+                    listening={false}
+                  />
+                )}
               </Group>
             );
           })}
         </Layer>
 
-        {/* Capa 2: Cañerías Eléctricas (Tramos de Caño) */}
+        {/* Capa 2: Cañerías Curvadas y Notación Reglamentaria AEA */}
         <Layer>
-          {visibleTramos.map((tramo) => {
-            const sNode = electricalNodes.find((n) => n.id === tramo.sourceNodeId);
-            const tNode = electricalNodes.find((n) => n.id === tramo.targetNodeId);
-            if (!sNode || !tNode) return null;
+          {electricalTramos.map((tramo) => {
+            // Conectar mediante las coordenadas de los extremos
+            const sEl = visibleElementos.find((e) => e.id === tramo.sourceNodeId);
+            const tEl = visibleElementos.find((e) => e.id === tramo.targetNodeId);
+            if (!sEl || !tEl) return null;
 
-            const sPos = getNodeCanvasCoordinates(sNode);
-            const tPos = getNodeCanvasCoordinates(tNode);
+            const sPos = getElementCanvasCoordinates(sEl);
+            const tPos = getElementCanvasCoordinates(tEl);
 
             const color = CIRCUIT_COLORS[tramo.circuitoCodigo || ''] || '#475569';
-            const notation = getConduitAeaNotation(tramo);
-
             const isSelected = tramo.id === selectedTramoForInspector;
+
+            // Arco curvado suave cuadrático para emular el tendido de cañería real
+            const midX = (sPos.x + tPos.x) / 2;
+            const midY = (sPos.y + tPos.y) / 2;
+            const dx = tPos.x - sPos.x;
+            const dy = tPos.y - sPos.y;
+            const len = Math.hypot(dx, dy);
+            const curvature = Math.min(len * 0.15, 25);
+            const ctrlX = midX - (dy / (len || 1)) * curvature;
+            const ctrlY = midY + (dx / (len || 1)) * curvature;
 
             return (
               <Group
@@ -530,16 +657,17 @@ export const ElectricalPlanView: React.FC = () => {
                 onTap={() => setSelectedTramoForInspector(tramo.id)}
               >
                 <Line
-                  points={[sPos.x, sPos.y, tPos.x, tPos.y]}
+                  points={[sPos.x, sPos.y, ctrlX, ctrlY, tPos.x, tPos.y]}
                   stroke={color}
-                  strokeWidth={isSelected ? 4 : 2.5}
-                  dash={tramo.tipoMontaje === 'losa' ? [8, 4] : undefined}
+                  strokeWidth={isSelected ? 4 : 2}
+                  tension={0.3}
                   hitStrokeWidth={14}
+                  dash={tramo.tipoMontaje === 'losa' ? [6, 4] : undefined}
                 />
                 <Text
-                  text={notation}
-                  x={(sPos.x + tPos.x) / 2 - 25}
-                  y={(sPos.y + tPos.y) / 2 - 10}
+                  text={`${tramo.circuitoCodigo || 'C1'} • Ø${tramo.diametroCañoMm || 19}`}
+                  x={ctrlX - 25}
+                  y={ctrlY - 8}
                   fontSize={8.5}
                   fontStyle="bold"
                   fontFamily="Outfit, sans-serif"
@@ -551,121 +679,124 @@ export const ElectricalPlanView: React.FC = () => {
           })}
         </Layer>
 
-        {/* Capa 3: Nodos Eléctricos (Bocas, TSG, Jabalina) */}
+        {/* Capa 3: Símbolos Eléctricos SVG Normalizados (IRAM / AEA) con Anclaje Paramétrico */}
         <Layer>
-          {electricalNodes.map((node) => {
-            const pos = getNodeCanvasCoordinates(node);
-            const meta = TIPO_NODO_ELECTRICO_CATALOG[node.tipo] || { label: 'Boca', emoji: '💡' };
-            const isSelected = node.id === selectedElectricalNodeId;
-            const isRoutingSource = node.id === routingSourceNodeId;
-            const isTSG = node.tipo === 'tablero_principal' || node.tipo === 'tablero_seccional';
+          {visibleElementos.map((elemento) => {
+            const room = rooms.find((r) => r.id === elemento.roomId);
+            if (!room) return null;
+
+            const circuitColor = elemento.circuitoId
+              ? CIRCUIT_COLORS[elemento.circuitoId] || '#0284c7'
+              : '#0284c7';
 
             return (
-              <Group
-                key={node.id}
-                x={pos.x}
-                y={pos.y}
-                onClick={() => handleNodeClick(node.id)}
-                onTap={() => handleNodeClick(node.id)}
-              >
-                {isTSG ? (
-                  <Group>
-                    <Rect
-                      x={-12}
-                      y={-12}
-                      width={24}
-                      height={24}
-                      fill="#ffffff"
-                      stroke="#0f172a"
-                      strokeWidth={2}
-                    />
-                    <Line points={[-12, -12, 12, 12]} stroke="#0f172a" strokeWidth={1.5} />
-                    <Text
-                      text="TSG"
-                      x={-10}
-                      y={-22}
-                      fontSize={9}
-                      fontStyle="bold"
-                      fill="#0f172a"
-                      listening={false}
-                    />
-                  </Group>
-                ) : (
-                  <Group>
-                    <Circle
-                      radius={isSelected || isRoutingSource ? 13 : 10}
-                      fill={isRoutingSource ? '#0284c7' : isSelected ? '#f59e0b' : '#ffffff'}
-                      stroke={node.tipo === 'boca_tomacorriente' ? '#d97706' : '#0284c7'}
-                      strokeWidth={2}
-                    />
-                    <Text
-                      text={meta.emoji}
-                      x={-6}
-                      y={-6}
-                      fontSize={11}
-                      listening={false}
-                    />
-                  </Group>
-                )}
-                <Text
-                  text={node.etiqueta}
-                  x={-25}
-                  y={14}
-                  fontSize={8}
-                  fontFamily="Outfit, sans-serif"
-                  fill="#334155"
-                  width={50}
-                  align="center"
-                  listening={false}
-                />
-              </Group>
+              <ElectricalSymbolShape
+                key={elemento.id}
+                elemento={elemento}
+                room={room}
+                isSelected={elemento.id === selectedElementoElectricoId}
+                isRoutingSource={elemento.id === routingSourceId}
+                circuitColor={circuitColor}
+                onSelect={selectElementoElectrico}
+                onAnchorChange={(id, newAnchor) => updateElementoElectrico(id, { anclaje: newAnchor })}
+                onClick={handleElementClick}
+              />
             );
           })}
         </Layer>
       </Stage>
 
-      {/* Tarjeta Flotante del Nodo Seleccionado */}
-      {selectedNode && (
+      {/* 🏷️ Panel Flotante del Elemento Seleccionado (Edición Paramétrica In-Situ) */}
+      {selectedElemento && (
         <Paper
-          elevation={4}
+          elevation={5}
           sx={{
             position: 'absolute',
-            bottom: isMobile ? 80 : 20,
-            right: 20,
+            bottom: isMobile ? 80 : 24,
+            right: isMobile ? 14 : 24,
             zIndex: 20,
             p: 1.5,
             borderRadius: 3,
             bgcolor: '#ffffff',
-            border: '1.5px solid #d97706',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5
+            border: '1.5px solid #0284c7',
+            width: isMobile ? 'calc(100vw - 28px)' : 310,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.12)'
           }}
         >
-          <Box>
-            <Typography variant="body2" fontWeight={700} color="#0f172a">
-              {selectedNode.etiqueta}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
-              {TIPO_NODO_ELECTRICO_CATALOG[selectedNode.tipo]?.label || selectedNode.tipo}
-            </Typography>
-          </Box>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={() => deleteNodoElectrico(selectedNode.id)}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Paper>
-      )}
+          <Stack spacing={1.2}>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Typography variant="subtitle2" fontWeight={700} color="#0f172a">
+                {getSymbolById(selectedElemento.simboloId)?.label || 'Elemento Eléctrico'}
+                {selectedElementoRoom ? ` • ${selectedElementoRoom.name}` : ''}
+              </Typography>
+              <IconButton size="small" onClick={() => selectElementoElectrico(null)}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
 
-      {/* Diálogo para Agregar Boca Eléctrica */}
-      {addNodeOpen && (
-        <AddElectricalNodeDialog
-          open={addNodeOpen}
-          onClose={() => setAddNodeOpen(false)}
-        />
+            <Box display="flex" gap={1}>
+              <TextField
+                label="Referencia"
+                size="small"
+                value={selectedElemento.referencia}
+                onChange={(e) => updateElementoElectrico(selectedElemento.id, { referencia: e.target.value })}
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                select
+                label="Circuito"
+                size="small"
+                value={selectedElemento.circuitoId || 'C1-IUG'}
+                onChange={(e) => updateElementoElectrico(selectedElemento.id, { circuitoId: e.target.value })}
+                sx={{ flex: 1.2 }}
+              >
+                <MenuItem value="C1-IUG">🔵 C1 - IUG</MenuItem>
+                <MenuItem value="C2-TUG">🟠 C2 - TUG</MenuItem>
+                <MenuItem value="C3-TUE">🔴 C3 - TUE</MenuItem>
+                <MenuItem value="ALIM-TSG">🟣 Alim. TSG</MenuItem>
+              </TextField>
+            </Box>
+
+            {/* Efectos (si es interruptor o boca comandada) */}
+            {(selectedElemento.simboloId.includes('llave') || selectedElemento.simboloId.includes('boca')) && (
+              <TextField
+                label="Efectos de Encendido"
+                size="small"
+                value={selectedElemento.efectos || ''}
+                placeholder="Ej: a, b"
+                onChange={(e) => updateElementoElectrico(selectedElemento.id, { efectos: e.target.value })}
+                fullWidth
+              />
+            )}
+
+            {/* Datos de Anclaje y Altura */}
+            <Box display="flex" justifyContent="space-between" alignItems="center" bgcolor="#f1f5f9" p={0.8} borderRadius={2}>
+              <Typography variant="caption" color="text.secondary">
+                {selectedElemento.anclaje.modo === 'pared' && selectedElemento.anclaje.pared
+                  ? `Pared ${selectedElemento.anclaje.pared.wall.toUpperCase()} • ${selectedElemento.anclaje.pared.distanciaMeters.toFixed(2)}m (${selectedElemento.anclaje.pared.lado})`
+                  : `Losa / Techo (${selectedElemento.anclaje.espacial?.xMeters.toFixed(2)}m, ${selectedElemento.anclaje.espacial?.yMeters.toFixed(2)}m)`}
+              </Typography>
+              <Chip
+                label={`h: ${selectedElemento.alturaMontajeMeters.toFixed(2)}m`}
+                size="small"
+                sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600 }}
+              />
+            </Box>
+
+            <Box display="flex" justifyContent="flex-end" gap={1}>
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                startIcon={<DeleteIcon fontSize="small" />}
+                onClick={() => deleteElementoElectrico(selectedElemento.id)}
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+              >
+                Eliminar
+              </Button>
+            </Box>
+          </Stack>
+        </Paper>
       )}
 
       {/* Drawer Inspector de Cañerías y Cables */}

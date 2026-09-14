@@ -11,6 +11,8 @@
 
 import { create } from 'zustand';
 import { Room, ElectricalAsset, WallOrientation, WallBreak, ROOM_TYPE_CATALOG, isMetricRoom } from '@/models/RoomModel';
+import { ElementoElectrico, createElementoElectrico } from '@/models/ElectricalModel';
+import { Abertura, createAbertura } from '@/models/OpeningModel';
 import {
   LogicalConnection,
   LogicalConnectionType,
@@ -68,6 +70,14 @@ export interface SurveyState {
   selectedTramoId: string | null;
   topologyLayer: TopologyLayerMode;
 
+  // Estado del Modelo Eléctrico Unificado y Símbolos (Norma AEA 90364-771)
+  elementosElectricos: ElementoElectrico[];
+  selectedElementoElectricoId: string | null;
+
+  // Estado de Aberturas CAD Maduras
+  aberturas: Abertura[];
+  selectedAberturaId: string | null;
+
   // Estado de Visualización y Canvas 2D
   isSnapEnabled: boolean;
   snapThreshold: number;
@@ -82,6 +92,18 @@ export interface SurveyState {
   selectConnection: (connectionId: string | null) => void;
   selectElectricalNode: (nodeId: string | null) => void;
   selectTramo: (tramoId: string | null) => void;
+  selectElementoElectrico: (id: string | null) => void;
+  selectAbertura: (id: string | null) => void;
+
+  // Operaciones sobre Elementos Eléctricos Unificados (Símbolos SVG & Anclaje)
+  addElementoElectrico: (elementoData: Parameters<typeof createElementoElectrico>[0]) => ElementoElectrico;
+  updateElementoElectrico: (id: string, updates: Partial<ElementoElectrico>) => void;
+  deleteElementoElectrico: (id: string) => void;
+
+  // Operaciones sobre Aberturas CAD Maduras (Puertas, Ventanas, Vanos)
+  addAbertura: (aberturaData: Parameters<typeof createAbertura>[0]) => Abertura;
+  updateAbertura: (id: string, updates: Partial<Abertura>) => void;
+  deleteAbertura: (id: string) => void;
 
   // Operaciones sobre Ambientes, Ingresos e Islas Técnicas
   addRoom: (roomData: Partial<Room> & { name: string; type?: Room['type'] }) => Room;
@@ -1221,6 +1243,210 @@ const INITIAL_ELECTRICAL_TRAMOS: TramoElectrico[] = [
   }
 ];
 
+const INITIAL_ELEMENTOS_ELECTRICOS: ElementoElectrico[] = [
+  {
+    id: 'el-tsg-cocina',
+    roomId: 'room-1788362682624',
+    simboloId: 'sym-planta-ts',
+    referencia: 'TSG',
+    circuitoId: 'ALIM-TSG',
+    anclaje: {
+      modo: 'pared',
+      pared: {
+        wall: 'north',
+        distanciaMeters: 1.0,
+        lado: 'interior'
+      }
+    },
+    alturaMontajeMeters: 1.5,
+    mostrarDato: true
+  },
+  {
+    id: 'el-luz-living-1',
+    roomId: 'room-1788362611903',
+    simboloId: 'sym-planta-boca-techo',
+    referencia: 'L1',
+    circuitoId: 'C1-IUG',
+    efectos: 'a',
+    anclaje: {
+      modo: 'techo',
+      espacial: {
+        xMeters: 1.9,
+        yMeters: 3.5
+      }
+    },
+    alturaMontajeMeters: 2.6,
+    mostrarDato: true
+  },
+  {
+    id: 'el-luz-living-2',
+    roomId: 'room-1788362611903',
+    simboloId: 'sym-planta-boca-techo',
+    referencia: 'L2',
+    circuitoId: 'C1-IUG',
+    efectos: 'b',
+    anclaje: {
+      modo: 'techo',
+      espacial: {
+        xMeters: 1.9,
+        yMeters: 7.5
+      }
+    },
+    alturaMontajeMeters: 2.6,
+    mostrarDato: true
+  },
+  {
+    id: 'el-llave-living',
+    roomId: 'room-1788362611903',
+    simboloId: 'sym-planta-llave-2',
+    referencia: 'S1',
+    circuitoId: 'C1-IUG',
+    efectos: 'a,b',
+    anclaje: {
+      modo: 'pared',
+      pared: {
+        wall: 'north',
+        distanciaMeters: 0.5,
+        lado: 'interior'
+      }
+    },
+    alturaMontajeMeters: 1.15,
+    mostrarDato: true
+  },
+  {
+    id: 'el-toma-living-1',
+    roomId: 'room-1788362611903',
+    simboloId: 'sym-planta-toma-doble',
+    referencia: 'T1',
+    circuitoId: 'C2-TUG',
+    anclaje: {
+      modo: 'pared',
+      pared: {
+        wall: 'west',
+        distanciaMeters: 2.0,
+        lado: 'interior'
+      }
+    },
+    alturaMontajeMeters: 0.35,
+    mostrarDato: true
+  },
+  {
+    id: 'el-toma-living-2',
+    roomId: 'room-1788362611903',
+    simboloId: 'sym-planta-toma',
+    referencia: 'T2',
+    circuitoId: 'C2-TUG',
+    anclaje: {
+      modo: 'pared',
+      pared: {
+        wall: 'west',
+        distanciaMeters: 6.0,
+        lado: 'interior'
+      }
+    },
+    alturaMontajeMeters: 0.35,
+    mostrarDato: true
+  },
+  {
+    id: 'el-luz-cocina',
+    roomId: 'room-1788362682624',
+    simboloId: 'sym-planta-boca-techo',
+    referencia: 'L3',
+    circuitoId: 'C1-IUG',
+    efectos: 'c',
+    anclaje: {
+      modo: 'techo',
+      espacial: {
+        xMeters: 1.9,
+        yMeters: 1.9
+      }
+    },
+    alturaMontajeMeters: 2.6,
+    mostrarDato: true
+  },
+  {
+    id: 'el-toma-cocina',
+    roomId: 'room-1788362682624',
+    simboloId: 'sym-planta-toma-20a',
+    referencia: 'TUE-1',
+    circuitoId: 'C3-TUE',
+    anclaje: {
+      modo: 'pared',
+      pared: {
+        wall: 'east',
+        distanciaMeters: 1.8,
+        lado: 'interior'
+      }
+    },
+    alturaMontajeMeters: 1.1,
+    mostrarDato: true
+  }
+];
+
+const INITIAL_ABERTURAS: Abertura[] = [
+  {
+    id: 'ab-puerta-acceso',
+    roomId: 'room-1788362611903',
+    wall: 'north',
+    posicionMeters: 0.8,
+    anchoMeters: 0.9,
+    altoMeters: 2.05,
+    tipo: 'puerta',
+    subtipo: 'batiente',
+    hojas: 1,
+    ladoApertura: 'interior',
+    sentidoGiro: 'derecha',
+    esPrincipal: true,
+    etiqueta: 'Ppal'
+  },
+  {
+    id: 'ab-ventana-living',
+    roomId: 'room-1788362611903',
+    wall: 'south',
+    posicionMeters: 0.9,
+    anchoMeters: 2.0,
+    altoMeters: 1.2,
+    antepechoMeters: 0.9,
+    tipo: 'ventana',
+    subtipo: 'corrediza',
+    hojas: 2,
+    ladoApertura: 'interior',
+    sentidoGiro: 'derecha',
+    etiqueta: 'V1'
+  },
+  {
+    id: 'ab-puerta-cocina',
+    roomId: 'room-1788362682624',
+    wall: 'west',
+    posicionMeters: 0.6,
+    anchoMeters: 0.8,
+    altoMeters: 2.05,
+    tipo: 'puerta',
+    subtipo: 'batiente',
+    hojas: 1,
+    ladoApertura: 'interior',
+    sentidoGiro: 'derecha',
+    ambienteVecinoId: 'room-1788362611903',
+    wallVecina: 'east',
+    etiqueta: 'P2'
+  },
+  {
+    id: 'ab-ventana-cocina',
+    roomId: 'room-1788362682624',
+    wall: 'north',
+    posicionMeters: 2.2,
+    anchoMeters: 1.2,
+    altoMeters: 1.0,
+    antepechoMeters: 1.1,
+    tipo: 'ventana',
+    subtipo: 'corrediza',
+    hojas: 2,
+    ladoApertura: 'interior',
+    sentidoGiro: 'izquierda',
+    etiqueta: 'V2'
+  }
+];
+
 export const useSurveyStore = create<SurveyState>((set, get) => ({
   // Gestión de Proyecto y Cliente (Cotizador IEBA)
   currentProjectId: 'proj-demo-depto-medianeras',
@@ -1255,6 +1481,15 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
   selectedElectricalNodeId: null,
   selectedTramoId: null,
   topologyLayer: 'architectural',
+
+  // Estado del Modelo Eléctrico Unificado y Símbolos (Norma AEA 90364-771)
+  elementosElectricos: INITIAL_ELEMENTOS_ELECTRICOS,
+  selectedElementoElectricoId: null,
+
+  // Estado de Aberturas CAD Maduras
+  aberturas: INITIAL_ABERTURAS,
+  selectedAberturaId: null,
+
   acceptableErrorThresholdMeters: 0.05,
   isAssistantOpen: false,
 
@@ -1284,6 +1519,52 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
 
   selectTramo: (tramoId: string | null) =>
     set({ selectedTramoId: tramoId }),
+
+  selectElementoElectrico: (id: string | null) =>
+    set({ selectedElementoElectricoId: id }),
+
+  addElementoElectrico: (params) => {
+    const newEl = createElementoElectrico(params);
+    set((state) => ({ elementosElectricos: [...state.elementosElectricos, newEl] }));
+    return newEl;
+  },
+
+  updateElementoElectrico: (id, updates) => {
+    set((state) => ({
+      elementosElectricos: state.elementosElectricos.map((el) =>
+        el.id === id ? { ...el, ...updates, updatedAt: new Date().toISOString() } : el
+      )
+    }));
+  },
+
+  deleteElementoElectrico: (id) => {
+    set((state) => ({
+      elementosElectricos: state.elementosElectricos.filter((el) => el.id !== id),
+      selectedElementoElectricoId:
+        state.selectedElementoElectricoId === id ? null : state.selectedElementoElectricoId
+    }));
+  },
+
+  selectAbertura: (id: string | null) => set({ selectedAberturaId: id }),
+
+  addAbertura: (params) => {
+    const newAb = createAbertura(params);
+    set((state) => ({ aberturas: [...state.aberturas, newAb] }));
+    return newAb;
+  },
+
+  updateAbertura: (id, updates) => {
+    set((state) => ({
+      aberturas: state.aberturas.map((ab) => (ab.id === id ? { ...ab, ...updates } : ab))
+    }));
+  },
+
+  deleteAbertura: (id) => {
+    set((state) => ({
+      aberturas: state.aberturas.filter((ab) => ab.id !== id),
+      selectedAberturaId: state.selectedAberturaId === id ? null : state.selectedAberturaId
+    }));
+  },
 
   addRoom: (roomData) => {
     const isTechnical = roomData.isTechnicalIsland || (roomData.type ? ROOM_TYPE_CATALOG[roomData.type]?.isTechnical : false);

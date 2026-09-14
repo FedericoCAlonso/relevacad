@@ -80,7 +80,15 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { rooms, updateConnection, deleteConnection } = useSurveyViewModel();
+  const {
+    rooms,
+    updateConnection,
+    deleteConnection,
+    aberturas,
+    addAbertura,
+    updateAbertura,
+    deleteAbertura
+  } = useSurveyViewModel();
 
   const [cornerRefs, setCornerRefs] = useState<Record<number, 'start' | 'end'>>({});
 
@@ -182,6 +190,10 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
   };
 
   const handleRemoveOpening = (index: number) => {
+    const opToRemove = openingsList[index];
+    if (opToRemove?.id) {
+      deleteAbertura(opToRemove.id);
+    }
     setOpeningsList(openingsList.filter((_, idx) => idx !== index));
   };
 
@@ -250,11 +262,68 @@ export const EditOpeningDialog: React.FC<EditOpeningDialogProps> = ({
       notes: notes.trim()
     });
 
+    // Sincronizar bidireccionalmente con el almacén de Aberturas
+    if (isVirtualBoundary) {
+      openingsList.forEach((op) => {
+        if (op.id) deleteAbertura(op.id);
+      });
+    } else {
+      const wallLen = wallClickContext?.wallLengthMeters || 3.0;
+      openingsList.forEach((op) => {
+        const offsetR = op.offsetRatio !== undefined ? op.offsetRatio : 0.5;
+        const wMeters = op.widthMeters || 0.8;
+        const posMeters = Math.max(0, Number((offsetR * wallLen - wMeters / 2).toFixed(2)));
+        const tipoAbertura = op.openingType.includes('ventana')
+          ? 'ventana'
+          : op.openingType.includes('vano')
+          ? 'vano'
+          : 'puerta';
+        const subtipoAbertura = op.openingType.includes('corrediza')
+          ? 'corrediza'
+          : op.openingType.includes('vaiven')
+          ? 'vaiven'
+          : 'batiente';
+
+        const existing = aberturas.find((a) => a.id === op.id);
+        if (existing) {
+          updateAbertura(existing.id, {
+            posicionMeters: posMeters,
+            anchoMeters: wMeters,
+            altoMeters: op.heightMeters || 2.05,
+            tipo: tipoAbertura,
+            subtipo: subtipoAbertura,
+            hojas: op.openingType.includes('doble') ? 2 : 1,
+            sentidoGiro: op.swingDirection === 'left' ? 'izquierda' : 'derecha',
+            etiqueta: op.label || undefined,
+            ambienteVecinoId: connection.targetRoomId !== connection.sourceRoomId ? connection.targetRoomId : undefined,
+            wallVecina: targetWall
+          });
+        } else {
+          addAbertura({
+            roomId: connection.sourceRoomId,
+            wall: sourceWall,
+            posicionMeters: posMeters,
+            anchoMeters: wMeters,
+            tipo: tipoAbertura,
+            subtipo: subtipoAbertura,
+            hojas: op.openingType.includes('doble') ? 2 : 1,
+            sentidoGiro: op.swingDirection === 'left' ? 'izquierda' : 'derecha',
+            etiqueta: op.label || undefined,
+            ambienteVecinoId: connection.targetRoomId !== connection.sourceRoomId ? connection.targetRoomId : undefined,
+            wallVecina: targetWall
+          });
+        }
+      });
+    }
+
     onClose();
   };
 
   const handleDelete = () => {
     if (window.confirm('¿Eliminar este muro compartido / vínculo entre ambientes?')) {
+      openingsList.forEach((op) => {
+        if (op.id) deleteAbertura(op.id);
+      });
       deleteConnection(connection.id);
       onClose();
     }

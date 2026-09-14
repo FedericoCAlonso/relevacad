@@ -56,6 +56,21 @@ export function useSurveyViewModel() {
   const setActivePhaseAction = useSurveyStore((state) => state.setActivePhase);
   const setTopologyLayerAction = useSurveyStore((state) => state.setTopologyLayer);
 
+  // Modelos Unificados: Elementos Eléctricos y Aberturas
+  const elementosElectricos = useSurveyStore((state) => state.elementosElectricos);
+  const selectedElementoElectricoId = useSurveyStore((state) => state.selectedElementoElectricoId);
+  const selectElementoElectricoAction = useSurveyStore((state) => state.selectElementoElectrico);
+  const addElementoElectricoAction = useSurveyStore((state) => state.addElementoElectrico);
+  const updateElementoElectricoAction = useSurveyStore((state) => state.updateElementoElectrico);
+  const deleteElementoElectricoAction = useSurveyStore((state) => state.deleteElementoElectrico);
+
+  const aberturas = useSurveyStore((state) => state.aberturas);
+  const selectedAberturaId = useSurveyStore((state) => state.selectedAberturaId);
+  const selectAberturaAction = useSurveyStore((state) => state.selectAbertura);
+  const addAberturaAction = useSurveyStore((state) => state.addAbertura);
+  const updateAberturaAction = useSurveyStore((state) => state.updateAbertura);
+  const deleteAberturaAction = useSurveyStore((state) => state.deleteAbertura);
+
   const addRoomAction = useSurveyStore((state) => state.addRoom);
   const updateRoomAction = useSurveyStore((state) => state.updateRoom);
   const removeRoomAction = useSurveyStore((state) => state.removeRoom);
@@ -632,6 +647,22 @@ export function useSurveyViewModel() {
     registerElectricalAsset,
     updateElectricalAsset: updateElectricalAssetAction,
     deleteElectricalAsset: removeElectricalAssetAction,
+
+    // Elementos Eléctricos Unificados (Símbolos SVG & Anclaje Paramétrico)
+    elementosElectricos,
+    selectedElementoElectricoId,
+    selectElementoElectrico: selectElementoElectricoAction,
+    addElementoElectrico: addElementoElectricoAction,
+    updateElementoElectrico: updateElementoElectricoAction,
+    deleteElementoElectrico: deleteElementoElectricoAction,
+
+    // Aberturas CAD Maduras (Puertas, Ventanas, Vanos)
+    aberturas,
+    selectedAberturaId,
+    selectAbertura: selectAberturaAction,
+    addAbertura: addAberturaAction,
+    updateAbertura: updateAberturaAction,
+    deleteAbertura: deleteAberturaAction,
 
     // Ensamblaje y Planta Arquitectónica 2D
     autoAssembleRooms: autoAssembleRoomsAction,

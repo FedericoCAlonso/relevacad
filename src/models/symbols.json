@@ -1,0 +1,298 @@
+{
+  "categories": [
+    {
+      "id": "iluminacion",
+      "name": "Iluminación"
+    },
+    {
+      "id": "tomacorrientes",
+      "name": "Tomacorrientes"
+    },
+    {
+      "id": "tableros",
+      "name": "Tableros y Medición"
+    },
+    {
+      "id": "cajas_pase",
+      "name": "Cajas de Paso y Derivación"
+    },
+    {
+      "id": "protecciones",
+      "name": "Puesta a Tierra y Protecciones"
+    },
+    {
+      "id": "unifilar",
+      "name": "Diagrama Unifilar"
+    },
+    {
+      "id": "otros",
+      "name": "Otros"
+    }
+  ],
+  "symbols": [
+    {
+      "id": "sym-planta-boca-techo",
+      "label": "Boca de Techo / Centro (IUG)",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "iluminacion",
+      "alturaDefault": 2.6,
+      "anclajeSugerido": "techo",
+      "codigoRef": "BT",
+      "svgContent": "<circle cx=\"0\" cy=\"0\" r=\"0.45\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"-0.32\" y1=\"-0.32\" x2=\"0.32\" y2=\"0.32\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.32\" y1=\"-0.32\" x2=\"-0.32\" y2=\"0.32\" stroke=\"currentColor\" stroke-width=\"0.06\"/>"
+    },
+    {
+      "id": "sym-planta-boca-pared",
+      "label": "Boca de Pared / Aplique (Brazo)",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "iluminacion",
+      "alturaDefault": 2.1,
+      "anclajeSugerido": "pared",
+      "codigoRef": "AP",
+      "svgContent": "<circle cx=\"0\" cy=\"0\" r=\"0.45\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"-0.32\" y1=\"-0.32\" x2=\"0.32\" y2=\"0.32\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.32\" y1=\"-0.32\" x2=\"-0.32\" y2=\"0.32\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"-0.45\" y1=\"0\" x2=\"-0.8\" y2=\"0\" stroke=\"currentColor\" stroke-width=\"0.06\"/>"
+    },
+    {
+      "id": "sym-planta-toma",
+      "label": "Tomacorriente Simple 10A (TUG)",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "tomacorrientes",
+      "alturaDefault": 0.35,
+      "anclajeSugerido": "pared",
+      "codigoRef": "TUG",
+      "svgContent": "<path d=\"M -0.45 0 A 0.45 0.45 0 0 1 0.45 0\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"-0.45\" y1=\"0\" x2=\"-0.65\" y2=\"0\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.45\" y1=\"0\" x2=\"0.65\" y2=\"0\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0\" y1=\"-0.45\" x2=\"0\" y2=\"-0.65\" stroke=\"currentColor\" stroke-width=\"0.06\"/>"
+    },
+    {
+      "id": "sym-planta-toma-doble",
+      "label": "Tomacorriente Doble 10A (TUG)",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "tomacorrientes",
+      "alturaDefault": 0.35,
+      "anclajeSugerido": "pared",
+      "codigoRef": "TUG-2",
+      "svgContent": "<path d=\"M -0.45 0 A 0.45 0.45 0 0 1 0.45 0\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"-0.45\" y1=\"0\" x2=\"-0.65\" y2=\"0\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.45\" y1=\"0\" x2=\"0.65\" y2=\"0\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0\" y1=\"-0.45\" x2=\"0\" y2=\"-0.65\" stroke=\"currentColor\" stroke-width=\"0.06\"/><circle cx=\"0\" cy=\"-0.22\" r=\"0.1\" fill=\"currentColor\"/>"
+    },
+    {
+      "id": "sym-planta-toma-20a",
+      "label": "Tomacorriente Especial 20A (TUE)",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "tomacorrientes",
+      "alturaDefault": 0.35,
+      "anclajeSugerido": "pared",
+      "codigoRef": "TUE",
+      "svgContent": "<path d=\"M -0.45 0 A 0.45 0.45 0 0 1 0.45 0\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"-0.45\" y1=\"0\" x2=\"-0.65\" y2=\"0\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.45\" y1=\"0\" x2=\"0.65\" y2=\"0\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0\" y1=\"-0.45\" x2=\"0\" y2=\"-0.65\" stroke=\"currentColor\" stroke-width=\"0.06\"/>"
+    },
+    {
+      "id": "sym-planta-llave-1",
+      "label": "Llave 1 Punto (Interruptor)",
+      "escalaBase": 1.5,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "iluminacion",
+      "alturaDefault": 1.15,
+      "anclajeSugerido": "pared",
+      "codigoRef": "SW-1",
+      "svgContent": "<circle cx=\"0\" cy=\"0\" r=\"0.1\" fill=\"currentColor\"/><line x1=\"0\" y1=\"0\" x2=\"0.35\" y2=\"-0.35\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.35\" y1=\"-0.35\" x2=\"0.48\" y2=\"-0.22\" stroke=\"currentColor\" stroke-width=\"0.06\"/>"
+    },
+    {
+      "id": "sym-planta-llave-2",
+      "label": "Llave 2 Puntos",
+      "escalaBase": 1.5,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "iluminacion",
+      "alturaDefault": 1.15,
+      "anclajeSugerido": "pared",
+      "codigoRef": "SW-2",
+      "svgContent": "<circle cx=\"0\" cy=\"0\" r=\"0.1\" fill=\"currentColor\"/><line x1=\"0\" y1=\"0\" x2=\"0.35\" y2=\"-0.35\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.35\" y1=\"-0.35\" x2=\"0.48\" y2=\"-0.22\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0\" y1=\"0\" x2=\"0.45\" y2=\"-0.15\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.45\" y1=\"-0.15\" x2=\"0.52\" y2=\"0.02\" stroke=\"currentColor\" stroke-width=\"0.06\"/>"
+    },
+    {
+      "id": "sym-planta-llave-3",
+      "label": "Llave 3 Puntos",
+      "escalaBase": 1.5,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "iluminacion",
+      "alturaDefault": 1.15,
+      "anclajeSugerido": "pared",
+      "codigoRef": "SW-3",
+      "svgContent": "<circle cx=\"0\" cy=\"0\" r=\"0.1\" fill=\"currentColor\"/><line x1=\"0\" y1=\"0\" x2=\"0.35\" y2=\"-0.35\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.35\" y1=\"-0.35\" x2=\"0.48\" y2=\"-0.22\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0\" y1=\"0\" x2=\"0.45\" y2=\"-0.1\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.45\" y1=\"-0.1\" x2=\"0.48\" y2=\"0.1\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0\" y1=\"0\" x2=\"0.35\" y2=\"0.35\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.35\" y1=\"0.35\" x2=\"0.22\" y2=\"0.48\" stroke=\"currentColor\" stroke-width=\"0.06\"/>"
+    },
+    {
+      "id": "sym-planta-llave-4",
+      "label": "Llave 4 Puntos",
+      "escalaBase": 1.5,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "iluminacion",
+      "alturaDefault": 1.15,
+      "anclajeSugerido": "pared",
+      "codigoRef": "SW-4",
+      "svgContent": "<circle cx=\"0\" cy=\"0\" r=\"0.1\" fill=\"currentColor\"/><line x1=\"0\" y1=\"0\" x2=\"0.35\" y2=\"-0.35\" stroke=\"currentColor\" stroke-width=\"0.05\"/><line x1=\"0.35\" y1=\"-0.35\" x2=\"0.48\" y2=\"-0.22\" stroke=\"currentColor\" stroke-width=\"0.05\"/><line x1=\"0\" y1=\"0\" x2=\"0.45\" y2=\"-0.1\" stroke=\"currentColor\" stroke-width=\"0.05\"/><line x1=\"0.45\" y1=\"-0.1\" x2=\"0.48\" y2=\"0.1\" stroke=\"currentColor\" stroke-width=\"0.05\"/><line x1=\"0\" y1=\"0\" x2=\"0.35\" y2=\"0.35\" stroke=\"currentColor\" stroke-width=\"0.05\"/><line x1=\"0.35\" y1=\"0.35\" x2=\"0.22\" y2=\"0.48\" stroke=\"currentColor\" stroke-width=\"0.05\"/><line x1=\"0\" y1=\"0\" x2=\"0.45\" y2=\"-0.1\" stroke=\"currentColor\" stroke-width=\"0.05\"/><line x1=\"0\" y1=\"0\" x2=\"-0.15\" y2=\"0.45\" stroke=\"currentColor\" stroke-width=\"0.05\"/>"
+    },
+    {
+      "id": "sym-planta-llave-comb",
+      "label": "Llave de Combinación",
+      "escalaBase": 1.5,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "iluminacion",
+      "alturaDefault": 1.15,
+      "anclajeSugerido": "pared",
+      "codigoRef": "SW-C",
+      "svgContent": "<circle cx=\"0\" cy=\"0\" r=\"0.1\" fill=\"currentColor\"/><line x1=\"0\" y1=\"0\" x2=\"0.35\" y2=\"-0.35\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0.35\" y1=\"-0.35\" x2=\"0.48\" y2=\"-0.22\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"0\" y1=\"0\" x2=\"-0.35\" y2=\"0.35\" stroke=\"currentColor\" stroke-width=\"0.06\"/><line x1=\"-0.35\" y1=\"0.35\" x2=\"-0.48\" y2=\"0.22\" stroke=\"currentColor\" stroke-width=\"0.06\"/>"
+    },
+    {
+      "id": "sym-planta-tp",
+      "label": "Tablero Principal (TP)",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "tableros",
+      "alturaDefault": 1.5,
+      "anclajeSugerido": "pared",
+      "codigoRef": "TP",
+      "svgContent": "<rect x=\"-1.8\" y=\"-0.6\" width=\"3.6\" height=\"1.2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.1\"/><line x1=\"-1.8\" y1=\"-0.6\" x2=\"1.8\" y2=\"0.6\" stroke=\"currentColor\" stroke-width=\"0.07\"/><line x1=\"1.8\" y1=\"-0.6\" x2=\"-1.8\" y2=\"0.6\" stroke=\"currentColor\" stroke-width=\"0.07\"/>"
+    },
+    {
+      "id": "sym-planta-ts",
+      "label": "Tablero Seccional (TS)",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "tableros",
+      "alturaDefault": 1.5,
+      "anclajeSugerido": "pared",
+      "codigoRef": "TS",
+      "svgContent": "<rect x=\"-1.8\" y=\"-0.6\" width=\"3.6\" height=\"1.2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.1\"/><line x1=\"-1.8\" y1=\"-0.6\" x2=\"1.8\" y2=\"0.6\" stroke=\"currentColor\" stroke-width=\"0.07\"/>"
+    },
+    {
+      "id": "sym-planta-medidor",
+      "label": "Medidor de Energía (kWh)",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "tableros",
+      "alturaDefault": 1.6,
+      "anclajeSugerido": "pared",
+      "codigoRef": "MED",
+      "svgContent": "<rect x=\"-0.8\" y=\"-1.8\" width=\"1.6\" height=\"3.6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.1\"/><line x1=\"-0.8\" y1=\"-0.9\" x2=\"0.8\" y2=\"-0.9\" stroke=\"currentColor\" stroke-width=\"0.1\"/><text x=\"0\" y=\"0.8\" font-family=\"Arial, sans-serif\" font-size=\"0.8\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"currentColor\">Wh</text>"
+    },
+    {
+      "id": "sym-planta-caja-pase",
+      "label": "Caja de Paso / Derivación",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "cajas_pase",
+      "alturaDefault": 2.2,
+      "anclajeSugerido": "pared",
+      "codigoRef": "CP",
+      "svgContent": "<rect x=\"-0.4\" y=\"-0.4\" width=\"0.8\" height=\"0.8\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.06\"/>"
+    },
+    {
+      "id": "sym-planta-pat",
+      "label": "Jabalina Puesta a Tierra (PAT)",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "planta",
+      "categoria": "protecciones",
+      "alturaDefault": 0.0,
+      "anclajeSugerido": "piso",
+      "codigoRef": "PAT",
+      "svgContent": "<line x1=\"0\" y1=\"-0.6\" x2=\"0\" y2=\"0.2\" stroke=\"currentColor\" stroke-width=\"0.08\"/><line x1=\"-0.5\" y1=\"0.2\" x2=\"0.5\" y2=\"0.2\" stroke=\"currentColor\" stroke-width=\"0.08\"/><line x1=\"-0.3\" y1=\"0.35\" x2=\"0.3\" y2=\"0.35\" stroke=\"currentColor\" stroke-width=\"0.07\"/><line x1=\"-0.12\" y1=\"0.5\" x2=\"0.12\" y2=\"0.5\" stroke=\"currentColor\" stroke-width=\"0.06\"/>"
+    },
+    {
+      "id": "sym-unifilar-alimentador",
+      "label": "Alimentador Unifilar",
+      "escalaBase": 1,
+      "anclaje": {
+        "x": 0,
+        "y": 0
+      },
+      "uso": "unifilar",
+      "categoria": "unifilar",
+      "svgContent": "<line x1=\"0\" y1=\"-1\" x2=\"0\" y2=\"1\" stroke=\"currentColor\" stroke-width=\"0.08\" stroke-linecap=\"round\"/><polygon points=\"-0.25,0.65 0.25,0.65 0,1\" fill=\"currentColor\"/>"
+    },
+    {
+      "id": "sym-unifilar-interruptor-termomagnetico",
+      "label": "Interruptor Termomagnético",
+      "escalaBase": 1,
+      "anclaje": { "x": 0, "y": 0 },
+      "uso": "unifilar",
+      "categoria": "unifilar",
+      "svgContent": "<svg viewBox=\"256 143 24 38\" xmlns=\"http://www.w3.org/2000/svg\"><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-linecap=\"square\" stroke-linejoin=\"bevel\" transform=\"matrix(1.15809,0,0,1.15809,481.765,232.776)\"><text x=\"0\" y=\"8\" font-family=\"'Liberation Sans'\" font-size=\"6px\" font-weight=\"400\" font-style=\"normal\">I</text><text x=\"2\" y=\"8\" font-family=\"'Liberation Sans'\" font-size=\"6px\" font-weight=\"400\" font-style=\"normal\">Δ</text></g><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" transform=\"matrix(1.15809,0,0,1.15809,497.978,231.618)\"><polyline points=\"2,-12 -2,-8\"/><polyline points=\"-2,-12 2,-8\"/></g><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-linecap=\"square\" stroke-linejoin=\"bevel\" transform=\"matrix(1.15809,0,0,1.15809,497.978,231.618)\"><polyline points=\"-5,-10 0,10 0,20\"/></g><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" transform=\"matrix(1.15809,0,0,1.15809,497.978,231.618)\"><polyline points=\"0,-20 0,-10\"/></g><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.5\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" transform=\"matrix(1.15809,0,0,1.15809,497.978,231.618)\"><polyline points=\"-4,-4 -8,-4\"/><polyline points=\"-8,-4 -8,-8\"/><polyline points=\"-13,-8 -8,-8\"/><polyline points=\"-13,-8 -13,-4\"/><polyline points=\"-16,-4 -13,-4\"/></g><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.5\" stroke-linecap=\"square\" stroke-linejoin=\"bevel\" transform=\"matrix(1.15809,0,0,1.15809,497.978,231.618)\"><path fill-rule=\"evenodd\" d=\"m -8,1 c 0,-1.932997 -1.11929,-3.5 -2.5,-3.5 -1.3807,0 -2.5,1.567003 -2.5,3.5\"/></g><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"0.5\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" transform=\"matrix(1.15809,0,0,1.15809,497.978,231.618)\"><polyline points=\"-8,1 -2,1\"/><polyline points=\"-16,1 -13,1\"/></g></svg>"
+    },
+    {
+      "id": "sym-unifilar-interruptor-diferencial",
+      "label": "Interruptor Diferencial",
+      "escalaBase": 1,
+      "anclaje": { "x": 0, "y": 0 },
+      "uso": "unifilar",
+      "categoria": "unifilar",
+      "svgContent": "<svg viewBox=\"392 162 26 24\" xmlns=\"http://www.w3.org/2000/svg\"><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" transform=\"matrix(1.15809,0,0,1.15809,555.882,231.618)\"><polyline points=\"0,-20 0,-10\"/><polyline points=\"2,-12 -2,-8\"/><polyline points=\"-2,-12 2,-8\"/></g><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-linecap=\"square\" stroke-linejoin=\"bevel\" transform=\"matrix(1.15809,0,0,1.15809,555.882,231.618)\"><polyline points=\"0,20 0,10 -7,-9\"/><ellipse cx=\"0\" cy=\"13\" rx=\"4.5\" ry=\"2\"/></g><g fill=\"none\" stroke=\"currentColor\" stroke-dasharray=\"2, 1\" stroke-width=\"0.5\" stroke-linecap=\"square\" stroke-linejoin=\"bevel\" transform=\"matrix(1.15809,0,0,1.15809,555.882,231.618)\"><polyline points=\"-4,0 -10,0 -10,13 -5,13\"/></g></svg>"
+    },
+    {
+      "id": "sym-unifilar-medidor-energia",
+      "label": "Medidor de Energía (Wh)",
+      "escalaBase": 1,
+      "anclaje": { "x": 0, "y": 0 },
+      "uso": "unifilar",
+      "categoria": "unifilar",
+      "svgContent": "<svg viewBox=\"145 150 50 55\" xmlns=\"http://www.w3.org/2000/svg\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" d=\"M -20,-40 H 20 V 0 h -40 v -40\" transform=\"matrix(1.15809,0,0,1.15809,34.7426,81.0662)\"/><text x=\"0\" y=\"11\" fill=\"currentColor\" font-family=\"'Liberation Sans'\" font-size=\"9px\" font-weight=\"400\" font-style=\"normal\" text-anchor=\"middle\" transform=\"matrix(1.15809,0,0,1.15809,25.4779,49.7978)\">Wh</text><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" d=\"m -20,-60 h 40 v 20 h -40 v -20\" transform=\"matrix(1.15809,0,0,1.15809,34.7426,81.0662)\"/></svg>"
+    }
+  ]
+}
